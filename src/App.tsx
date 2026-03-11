@@ -227,17 +227,16 @@ const ProjectorView = () => {
             )}
 
             {/* Winner Modal */}
-            <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-white/80 backdrop-blur-md transition-opacity duration-300 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <div className={`bg-white rounded-[2rem] p-10 max-w-3xl w-[90%] text-center shadow-2xl transform transition-transform duration-300 border border-white/20 relative overflow-hidden ${showModal ? 'scale-100' : 'scale-90'}`}>
-                    <div className="absolute inset-0 bg-gradient-to-b from-yellow-50 to-white opacity-50 pointer-events-none"></div>
-                    <div className="relative z-10 pt-4">
-                        <div className="mb-4 flex flex-col items-center">
-                            <div className="text-lg font-bold text-gray-400 uppercase tracking-widest mb-1">Xin chúc mừng</div>
-                            <div className="text-3xl font-bold text-red-500 uppercase">{prize.name}</div>
+            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
+                    <div className="relative z-10">
+                        <div className="mb-6 flex flex-col items-center animate-fade-down">
+                            <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>
+                            <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
                         </div>
-                        <div className="flex flex-col gap-2 mb-8 bg-gray-50 p-8 rounded-2xl border border-gray-100 shadow-inner">
-                            <div className="text-5xl md:text-7xl font-bold text-gray-800 break-words font-sans tracking-tighter">{modalData.id}</div>
-                            <div className="text-3xl md:text-5xl font-bold text-red-600 break-words mt-2">{modalData.name}</div>
+                        <div className="flex flex-col gap-4 mb-8">
+                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)] animate-pulse">{modalData.id}</div>
+                            <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
                         </div>
                     </div>
                 </div>
@@ -684,40 +683,47 @@ const ControlView = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200 shadow-sm">
-                                <label className="block text-sm font-bold text-yellow-800 mb-3 flex items-center gap-2">
-                                    <i className="fa-solid fa-gift"></i> 2. Giải thưởng đang quay:
-                                </label>
-                                <div className="space-y-3">
-                                    <div className="mt-4 pt-3 border-t border-yellow-200 grid grid-cols-2 gap-2">
-                                        <button onClick={() => { addLog("SHOW_PRIZE", "Hiển thị giới thiệu giải thưởng"); broadcast({ type: 'SHOW_PRIZE_SCENE', payload: prize }); }} className="py-2 bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-white rounded-lg font-bold shadow-md transform hover:scale-[1.02] transition-all flex items-center justify-center gap-2 text-xs">
-                                            <i className="fa-solid fa-desktop"></i> Chiếu Giới Thiệu
-                                        </button>
-                                        <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); broadcast({ type: 'BACK_TO_SPIN' }); }} className="py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold shadow-sm transform hover:scale-[1.02] transition-all flex items-center justify-center gap-2 text-xs">
-                                            <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
-                                        </button>
+                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-md relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-100 to-orange-50 rounded-bl-full -z-10 opacity-50"></div>
+                                <label className="block text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                                        <i className="fa-solid fa-gift"></i>
                                     </div>
+                                    2. Cấu hình Giải thưởng
+                                </label>
+                                
+                                <div className="space-y-5">
                                     <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase">Tên giải thưởng</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Tên giải thưởng</label>
                                         <input type="text" value={prize.name} onChange={e => {
                                             const newPrize = { ...prize, name: e.target.value || "Giải Thưởng" };
                                             setPrize(newPrize);
                                             broadcast({ type: 'UPDATE_PRIZE', payload: newPrize });
-                                        }} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none text-gray-800 font-bold" placeholder="VD: Giải Nhất..." />
+                                        }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-800 font-bold transition-all shadow-sm" placeholder="VD: Giải Nhất..." />
                                     </div>
+                                    
                                     <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase">Hình ảnh quà tặng</label>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <div className="w-16 h-16 bg-white border border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative group">
-                                                <img src={prize.image} className="w-full h-full object-cover" alt="Prize Preview" />
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Hình ảnh quà tặng</label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition-colors">
+                                                <img src={prize.image} className="w-full h-full object-contain p-2" alt="Prize Preview" />
                                             </div>
-                                            <div className="flex-grow">
+                                            <div className="flex-grow flex flex-col gap-2">
                                                 <input type="file" id="prizeImgInput" accept="image/*" className="hidden" onChange={handlePrizeImageUpload} />
-                                                <label htmlFor="prizeImgInput" className="cursor-pointer inline-block px-4 py-2 bg-white text-yellow-600 border border-yellow-300 rounded-lg hover:bg-yellow-50 text-sm font-medium transition-all">
-                                                    Chọn ảnh
+                                                <label htmlFor="prizeImgInput" className="cursor-pointer w-full text-center px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-100 hover:border-blue-300 text-sm font-bold transition-all shadow-sm">
+                                                    <i className="fa-solid fa-cloud-arrow-up mr-2"></i> Tải ảnh lên
                                                 </label>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div className="pt-5 border-t border-gray-100 grid grid-cols-2 gap-3">
+                                        <button onClick={() => { addLog("SHOW_PRIZE", "Hiển thị giới thiệu giải thưởng"); broadcast({ type: 'SHOW_PRIZE_SCENE', payload: prize }); }} className="py-2.5 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white rounded-xl font-bold shadow-md transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
+                                            <i className="fa-solid fa-desktop"></i> Chiếu Giới Thiệu
+                                        </button>
+                                        <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); broadcast({ type: 'BACK_TO_SPIN' }); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold shadow-sm transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm border border-gray-200">
+                                            <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -830,20 +836,19 @@ const ControlView = () => {
             </div>
 
             {/* Winner Modal */}
-            <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-white/80 backdrop-blur-md transition-opacity duration-300 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={handleCloseModal}>
-                <div className={`bg-white rounded-[2rem] p-10 max-w-3xl w-[90%] text-center shadow-2xl transform transition-transform duration-300 border border-white/20 relative overflow-hidden ${showModal ? 'scale-100' : 'scale-90'}`} onClick={e => e.stopPropagation()}>
-                    <div className="absolute inset-0 bg-gradient-to-b from-yellow-50 to-white opacity-50 pointer-events-none"></div>
-                    <div className="relative z-10 pt-4">
-                        <div className="mb-4 flex flex-col items-center">
-                            <div className="text-lg font-bold text-gray-400 uppercase tracking-widest mb-1">Xin chúc mừng</div>
-                            <div className="text-3xl font-bold text-red-500 uppercase">{prize.name}</div>
+            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={handleCloseModal}>
+                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
+                    <div className="relative z-10">
+                        <div className="mb-6 flex flex-col items-center animate-fade-down">
+                            <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>
+                            <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
                         </div>
-                        <div className="flex flex-col gap-2 mb-8 bg-gray-50 p-8 rounded-2xl border border-gray-100 shadow-inner">
-                            <div className="text-5xl md:text-7xl font-bold text-gray-800 break-words font-sans tracking-tighter">{modalData.id}</div>
-                            <div className="text-3xl md:text-5xl font-bold text-red-600 break-words mt-2">{modalData.name}</div>
+                        <div className="flex flex-col gap-4 mb-8">
+                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)] animate-pulse">{modalData.id}</div>
+                            <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
                         </div>
-                        <div className="flex justify-center gap-4">
-                            <button onClick={handleCloseModal} className="px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl text-lg transition-colors flex items-center gap-2">
+                        <div className="flex justify-center gap-4 mt-12">
+                            <button onClick={handleCloseModal} className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-full text-lg transition-colors flex items-center gap-2 backdrop-blur-md border border-white/30">
                                 <i className="fa-solid fa-rotate-left"></i> Quay về
                             </button>
                         </div>

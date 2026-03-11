@@ -236,7 +236,7 @@ const ProjectorView = () => {
                             <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
                         </div>
                         <div className="flex flex-col gap-4 mb-8">
-                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)] animate-pulse">{modalData.id}</div>
+                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]">{modalData.id}</div>
                             <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
                         </div>
                     </div>
@@ -449,8 +449,9 @@ const ControlView = () => {
         setShowModal(false);
         broadcast({ type: 'CLOSE_MODAL' });
         setTimeout(() => {
-            setDisplayId("---");
+            setDisplayId("ARE YOU READY ?");
             setShowName(false);
+            broadcast({ type: 'RESET' });
         }, 300);
     };
 
@@ -846,7 +847,7 @@ const ControlView = () => {
                             <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
                         </div>
                         <div className="flex flex-col gap-4 mb-8">
-                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)] animate-pulse">{modalData.id}</div>
+                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]">{modalData.id}</div>
                             <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
                         </div>
                         <div className="flex justify-center gap-4 mt-12">

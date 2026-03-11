@@ -44,8 +44,10 @@ const Stage = ({
                 <div className="absolute w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 left-1/4"></div>
                 <div className="absolute w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 right-1/4"></div>
 
-                <div className={`relative z-10 text-[4rem] md:text-[8rem] font-bold text-white text-center break-words w-full px-4 leading-none display-text transition-all duration-100 font-sans tracking-tighter py-4 ${isRolling ? 'rolling' : ''}`}>
+                <div className={`relative z-10 text-[4rem] md:text-[8rem] font-bold text-white text-center break-words w-full px-4 leading-none display-text transition-all duration-300 ease-out will-change-transform`}>
+                    <span className="transition-opacity duration-300"></span>
                     {displayId}
+                    
                 </div>
                 <div className={`relative z-10 text-2xl md:text-4xl font-bold text-white text-center mt-2 h-12 transition-opacity duration-500 ${showName ? 'opacity-100' : 'opacity-0'}`}>
                     {displayName}
@@ -89,9 +91,10 @@ const Stage = ({
 };
 
 const ProjectorView = () => {
-    const [bgImage, setBgImage] = useState('linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)');
+    const [bgImage, setBgImage] = useState('url("/background.png")');;
     const [prize, setPrize] = useState({ name: "Giải May Mắn", image: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
+    const [displayIdVisible, setDisplayIdVisible] = useState(true);
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -229,7 +232,7 @@ const ProjectorView = () => {
 
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
+                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500  ${showModal ? 'scale-100' : 'scale-75'}`}>
                     <div className="relative z-10">
                         <div className="mb-6 flex flex-col items-center animate-fade-down">
                             <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>
@@ -254,12 +257,13 @@ const ControlView = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [bgImage, setBgImage] = useState('linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)');
+    const [bgImage, setBgImage] = useState('url("/background.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
     
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
+    const [displayIdVisible, setDisplayIdVisible] = useState(true);
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -446,14 +450,21 @@ const ControlView = () => {
     };
 
     const handleCloseModal = () => {
-        setShowModal(false);
-        broadcast({ type: 'CLOSE_MODAL' });
-        setTimeout(() => {
-            setDisplayId("ARE YOU READY ?");
-            setShowName(false);
-            broadcast({ type: 'RESET' });
-        }, 300);
-    };
+    setShowModal(false);
+    broadcast({ type: 'CLOSE_MODAL' });
+
+    setDisplayIdVisible(false); // fade out
+
+    setTimeout(() => {
+        setDisplayId("ARE YOU READY ?");
+        setShowName(false);
+        broadcast({ type: 'RESET' });
+
+        requestAnimationFrame(() => {
+            setDisplayIdVisible(true); // fade in
+        });
+    }, 400);
+};
 
     const toggleFullScreen = () => {
         if (!document.fullscreenElement) {

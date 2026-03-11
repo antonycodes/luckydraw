@@ -839,8 +839,8 @@ const ControlView = () => {
             </div>
 
             {/* Winner Modal */}
-            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={handleCloseModal}>
-                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
+            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={handleCloseModal}>
+                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
                     <div className="relative z-10">
                         <div className="mb-6 flex flex-col items-center animate-fade-down">
                             <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>

@@ -26,11 +26,11 @@ const parseCandidates = (text: string) => {
 const Stage = ({ 
     prize, displayId, displayName, showName, isRolling, 
     showTimer, timerWidth, timerTransition, showControls = true, 
-    onSpin, isSpinning, onReset 
+    onSpin, isSpinning, onReset, showModal = false
 }: any) => {
     return (
         <div className={`w-full max-w-6xl ${showControls ? 'glass-panel-stage rounded-3xl p-6' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] pb-32`}>
-            <div className="absolute top-6 left-6 md:left-10 flex items-center gap-4 animate-fade-up">
+            <div className={`absolute top-6 left-6 md:left-10 flex items-center gap-4 animate-fade-up transition-opacity duration-500 ${showModal ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="w-20 h-20 md:w-24 md:h-24 bg-white/90 rounded-2xl p-2 shadow-xl transform rotate-3 border-2 border-yellow-400">
                     <img src={prize.image} className="w-full h-full object-contain" alt="Prize" />
                 </div>
@@ -40,7 +40,7 @@ const Stage = ({
                 </div>
             </div>
 
-            <div className="relative w-full flex flex-col items-center justify-center mb-8 mt-20">
+            <div className={`relative w-full flex flex-col items-center justify-center mb-8 mt-20 transition-all duration-500 ${showModal ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
                 <div className="absolute w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 left-1/4"></div>
                 <div className="absolute w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 right-1/4"></div>
 
@@ -182,6 +182,7 @@ const ProjectorView = () => {
                     timerWidth={timerWidth}
                     timerTransition={timerTransition}
                     showControls={false}
+                    showModal={showModal}
                 />
             )}
 
@@ -763,7 +764,7 @@ const ControlView = () => {
                 </div>
 
                 {/* Stage View */}
-                <div className={activeTab === 'stage' ? 'block w-full h-full' : 'hidden'}>
+                <div className={activeTab === 'stage' ? 'flex items-center justify-center w-full h-full' : 'hidden'}>
                     <Stage 
                         prize={prize}
                         displayId={displayId}
@@ -776,6 +777,7 @@ const ControlView = () => {
                         onSpin={startAutoSpin}
                         isSpinning={isSpinning}
                         onReset={handleReset}
+                        showModal={showModal}
                     />
                 </div>
 

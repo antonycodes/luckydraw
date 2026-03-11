@@ -89,7 +89,7 @@ const Stage = ({
 };
 
 const ProjectorView = () => {
-    const [bgImage, setBgImage] = useState('url("/background 19-9.png")');
+    const [bgImage, setBgImage] = useState('linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)');
     const [prize, setPrize] = useState({ name: "Giải May Mắn", image: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayName, setDisplayName] = useState("");
@@ -102,9 +102,6 @@ const ProjectorView = () => {
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [overlayState, setOverlayState] = useState('none'); 
     const [winners, setWinners] = useState<any[]>([]);
-    const [soundEnabled, setSoundEnabled] = useState(false);
-
-    const audioRef = useRef(new Audio());
 
     useEffect(() => {
         const channel = new BroadcastChannel('lucky_draw_sync');
@@ -125,13 +122,6 @@ const ProjectorView = () => {
                     setOverlayState('none');
                     setShowModal(false);
                     break;
-                case 'UPDATE_SOUND':
-                    if (payload) {
-                        audioRef.current.src = payload;
-                    } else {
-                        audioRef.current = new Audio();
-                    }
-                    break;
                 case 'SPIN_TICK':
                     setDisplayId(payload.text);
                     setShowName(false);
@@ -149,19 +139,11 @@ const ProjectorView = () => {
                             setTimerTransition(`width ${payload.duration}ms linear`);
                         });
                     });
-                    if (audioRef.current.src && soundEnabled) {
-                        audioRef.current.currentTime = 0;
-                        audioRef.current.play().catch(e => console.log(e));
-                    }
                     break;
                 case 'SPIN_STOP':
                     setIsRolling(false);
                     setDisplayId(payload.id);
                     setShowTimer(false);
-                    if (audioRef.current.src) {
-                        audioRef.current.pause();
-                        audioRef.current.currentTime = 0;
-                    }
                     break;
                 case 'SHOW_NAME':
                     setDisplayName(payload.name);
@@ -185,7 +167,7 @@ const ProjectorView = () => {
             }
         };
         return () => channel.close();
-    }, [soundEnabled]);
+    }, []);
 
     return (
         <div className="w-screen h-screen overflow-hidden bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: bgImage }}>
@@ -261,15 +243,6 @@ const ProjectorView = () => {
                 </div>
             </div>
 
-            {/* Sound Enable Button */}
-            {!soundEnabled && (
-                <button 
-                    onClick={() => setSoundEnabled(true)}
-                    className="fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 bg-white rounded-full border border-gray-300 z-[10000] opacity-80 hover:opacity-100 shadow-lg font-sans flex items-center gap-2 text-gray-700"
-                >
-                    <i className="fa-solid fa-volume-xmark"></i> Click vào đây để bật âm thanh
-                </button>
-            )}
         </div>
     );
 };
@@ -281,7 +254,7 @@ const ControlView = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [bgImage, setBgImage] = useState('url("/background 19-9.png")');
+    const [bgImage, setBgImage] = useState('linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)');
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
@@ -440,31 +413,29 @@ const ControlView = () => {
         setDisplayId(winner.id);
         broadcast({ type: 'SPIN_STOP', payload: { id: winner.id } });
 
+        const name = winner.name || "(Không có tên)";
+        setDisplayName(name);
+        setShowName(true);
+        playWinSound();
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        broadcast({ type: 'SHOW_NAME', payload: { name: name } });
+
         setTimeout(() => {
-            const name = winner.name || "(Không có tên)";
-            setDisplayName(name);
-            setShowName(true);
-            playWinSound();
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-            broadcast({ type: 'SHOW_NAME', payload: { name: name } });
+            setModalData({ id: winner.id, name: name });
+            setShowModal(true);
+            triggerModalConfetti();
+            broadcast({ type: 'SHOW_MODAL', payload: { id: winner.id, name: name } });
+        }, 2000);
 
-            setTimeout(() => {
-                setModalData({ id: winner.id, name: name });
-                setShowModal(true);
-                triggerModalConfetti();
-                broadcast({ type: 'SHOW_MODAL', payload: { id: winner.id, name: name } });
-            }, 1000);
+        if (removeWinner) {
+            const newCandidates = [...parsedCandidates];
+            newCandidates.splice(winnerIndex, 1);
+            const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
+            setInputText(newText);
+            addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
+        }
 
-            if (removeWinner) {
-                const newCandidates = [...parsedCandidates];
-                newCandidates.splice(winnerIndex, 1);
-                const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
-                setInputText(newText);
-                addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
-            }
-
-            setIsSpinning(false);
-        }, 1000);
+        setIsSpinning(false);
     };
 
     const handleReset = () => {

@@ -44,12 +44,10 @@ const Stage = ({
                 <div className="absolute w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 left-1/4"></div>
                 <div className="absolute w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 right-1/4"></div>
 
-                <div className={`relative z-10 text-[4rem] md:text-[8rem] font-bold text-white text-center break-words w-full px-4 leading-none display-text transition-all duration-300 ease-out will-change-transform`}>
-                    <span className="transition-opacity duration-300"></span>
+                <div className={`relative z-10 text-[4rem] md:text-[8rem] font-bold text-white text-center break-words w-full px-4 leading-none display-text transition-all duration-100 font-sans tracking-tighter py-4 ${isRolling ? 'rolling' : ''}`}>
                     {displayId}
-                    
                 </div>
-                <div className={`relative z-10 text-2xl md:text-4xl font-bold text-white text-center mt-2 h-12 transition-opacity duration-500 ${showName ? 'opacity-100' : 'opacity-0'}`}>
+                <div className={`relative z-10 text-2xl md:text-4xl font-bold text-white text-center mt-2 h-12 transition-opacity duration-500 display-text ${showName ? 'opacity-100' : 'opacity-0'}`}>
                     {displayName}
                 </div>
             </div>
@@ -91,10 +89,9 @@ const Stage = ({
 };
 
 const ProjectorView = () => {
-    const [bgImage, setBgImage] = useState('url("/background.png")');;
+    const [bgImage, setBgImage] = useState("url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1773718259/LUCKY_DRAW_ywoeyw.png')");
     const [prize, setPrize] = useState({ name: "Giải May Mắn", image: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
-    const [displayIdVisible, setDisplayIdVisible] = useState(true);
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -231,16 +228,22 @@ const ProjectorView = () => {
             )}
 
             {/* Winner Modal */}
-            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500  ${showModal ? 'scale-100' : 'scale-75'}`}>
-                    <div className="relative z-10">
-                        <div className="mb-6 flex flex-col items-center animate-fade-down">
-                            <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>
-                            <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
+            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }}>
+                <div className={`relative z-10 p-8 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
+                    <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
+                            Xin chúc mừng
                         </div>
-                        <div className="flex flex-col gap-4 mb-8">
-                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]">{modalData.id}</div>
-                            <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
+                        <div className="text-3xl md:text-5xl font-bold text-white uppercase display-text mb-2 animate-fade-down">
+                            {prize.name}
+                        </div>
+                        
+                        <div className="text-5xl md:text-7xl font-bold text-red-500 uppercase break-words display-text leading-tight my-2">
+                            {modalData.name}
+                        </div>
+                        
+                        <div className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
+                            {modalData.id}
                         </div>
                     </div>
                 </div>
@@ -257,13 +260,12 @@ const ControlView = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [bgImage, setBgImage] = useState('url("/background.png")');
+    const [bgImage, setBgImage] = useState("url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1773718259/LUCKY_DRAW_ywoeyw.png')");
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
     
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
-    const [displayIdVisible, setDisplayIdVisible] = useState(true);
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -450,21 +452,14 @@ const ControlView = () => {
     };
 
     const handleCloseModal = () => {
-    setShowModal(false);
-    broadcast({ type: 'CLOSE_MODAL' });
-
-    setDisplayIdVisible(false); // fade out
-
-    setTimeout(() => {
-        setDisplayId("ARE YOU READY ?");
-        setShowName(false);
-        broadcast({ type: 'RESET' });
-
-        requestAnimationFrame(() => {
-            setDisplayIdVisible(true); // fade in
-        });
-    }, 400);
-};
+        setShowModal(false);
+        broadcast({ type: 'CLOSE_MODAL' });
+        setTimeout(() => {
+            setDisplayId("ARE YOU READY ?");
+            setShowName(false);
+            broadcast({ type: 'RESET' });
+        }, 300);
+    };
 
     const toggleFullScreen = () => {
         if (!document.fullscreenElement) {
@@ -479,12 +474,7 @@ const ControlView = () => {
     };
 
     const openProjectorWindow = () => {
-        const width = 1024;
-        const height = 768;
-        const left = (window.screen.width - width) / 2;
-        const top = (window.screen.height - height) / 2;
-        
-        const win = window.open('?projector=true', 'LuckyDrawProjector', `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`);
+        const win = window.open('?projector=true', '_blank');
         
         if (!win) {
             alert("⚠️ Cửa sổ bị chặn! Vui lòng nhìn lên thanh địa chỉ và cho phép Pop-up (Cửa sổ bật lên) cho trang web này.");
@@ -637,8 +627,8 @@ const ControlView = () => {
                     <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-gray-600 hover:bg-gray-100 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
                         <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
                     </button>
-                    <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-purple-600 hover:bg-purple-100 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu">
-                        <i className="fa-solid fa-up-right-from-square"></i>
+                    <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-purple-600 hover:bg-purple-100 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
+                        <i className="fa-solid fa-up-right-from-square"></i> <span>Extend</span>
                     </button>
                 </div>
             </div>
@@ -850,18 +840,25 @@ const ControlView = () => {
             </div>
 
             {/* Winner Modal */}
-            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={handleCloseModal}>
-                <div className={`p-10 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
-                    <div className="relative z-10">
-                        <div className="mb-6 flex flex-col items-center animate-fade-down">
-                            <div className="text-2xl font-bold text-yellow-300 uppercase tracking-[0.3em] mb-2 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]">Xin chúc mừng</div>
-                            <div className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{prize.name}</div>
+            <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }} onClick={handleCloseModal}>
+                <div className={`relative z-10 p-8 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
+                    <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
+                            Xin chúc mừng
                         </div>
-                        <div className="flex flex-col gap-4 mb-8">
-                            <div className="text-7xl md:text-[8rem] leading-none font-bold text-yellow-400 break-words font-sans tracking-tighter drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]">{modalData.id}</div>
-                            <div className="text-5xl md:text-7xl font-bold text-white break-words mt-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">{modalData.name}</div>
+                        <div className="text-3xl md:text-5xl font-bold text-white uppercase display-text mb-2 animate-fade-down">
+                            {prize.name}
                         </div>
-                        <div className="flex justify-center gap-4 mt-12">
+                        
+                        <div className="text-5xl md:text-7xl font-bold text-red-500 uppercase break-words display-text leading-tight my-2">
+                            {modalData.name}
+                        </div>
+                        
+                        <div className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
+                            {modalData.id}
+                        </div>
+                        
+                        <div className="flex justify-center gap-4 mt-8">
                             <button onClick={handleCloseModal} className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-full text-lg transition-colors flex items-center gap-2 backdrop-blur-md border border-white/30">
                                 <i className="fa-solid fa-rotate-left"></i> Quay về
                             </button>

@@ -474,28 +474,32 @@ const ControlView = () => {
     };
 
     const openProjectorWindow = () => {
-    const dualScreenLeft = window.screenLeft ?? window.screenX;
-    const dualScreenTop = window.screenTop ?? window.screenY;
-
     const width = window.screen.availWidth;
     const height = window.screen.availHeight;
 
     const win = window.open(
         `${window.location.origin}${window.location.pathname}?projector=true`,
-        'ProjectorWindow',
-        `width=${width},height=${height},top=${dualScreenTop},left=${dualScreenLeft + width}`
+        '_blank',
+        `popup=yes,width=${width},height=${height},top=0,left=0`
     );
 
-    if (win) win.focus();
+    if (!win) {
+        alert("⚠️ Cửa sổ bị chặn! Hãy cho phép pop-up.");
+        return;
+    }
+
+    // Focus vào window mới
+    win.focus();
+
+    // Sync data sau khi mở
+    setTimeout(() => {
+        broadcast({ type: 'UPDATE_BG', payload: bgImage });
+        broadcast({ type: 'UPDATE_PRIZE', payload: prize });
+        if (customSound) {
+            broadcast({ type: 'UPDATE_SOUND', payload: customSound });
+        }
+    }, 500);
 };
-
-        setTimeout(() => {
-            broadcast({ type: 'UPDATE_BG', payload: bgImage });
-            broadcast({ type: 'UPDATE_PRIZE', payload: prize });
-            if (customSound) broadcast({ type: 'UPDATE_SOUND', payload: customSound });
-        }, 1000);
-    };
-
     const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();

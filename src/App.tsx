@@ -474,12 +474,20 @@ const ControlView = () => {
     };
 
     const openProjectorWindow = () => {
-        const win = window.open('?projector=true', '_blank');
-        
-        if (!win) {
-            alert("⚠️ Cửa sổ bị chặn! Vui lòng nhìn lên thanh địa chỉ và cho phép Pop-up (Cửa sổ bật lên) cho trang web này.");
-            return;
-        }
+    const dualScreenLeft = window.screenLeft ?? window.screenX;
+    const dualScreenTop = window.screenTop ?? window.screenY;
+
+    const width = window.screen.availWidth;
+    const height = window.screen.availHeight;
+
+    const win = window.open(
+        `${window.location.origin}${window.location.pathname}?projector=true`,
+        'ProjectorWindow',
+        `width=${width},height=${height},top=${dualScreenTop},left=${dualScreenLeft + width}`
+    );
+
+    if (win) win.focus();
+};
 
         setTimeout(() => {
             broadcast({ type: 'UPDATE_BG', payload: bgImage });

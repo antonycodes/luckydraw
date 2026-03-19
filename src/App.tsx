@@ -376,7 +376,7 @@ const ControlView = () => {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 setTimerWidth('0%');
-                setTimerTransition(`width 2000ms linear`);
+                setTimerTransition(`width 10000ms linear`);
             });
         });
         setShowModal(false);

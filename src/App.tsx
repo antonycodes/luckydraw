@@ -396,7 +396,7 @@ const ControlView = () => {
         setTimeout(() => {
             clearInterval(interval);
             finishSpin(parsedCandidates);
-        }, 2000);
+        }, 10000);
     };
 
     const finishSpin = (parsedCandidates: any[]) => {

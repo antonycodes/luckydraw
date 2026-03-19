@@ -89,7 +89,7 @@ const Stage = ({
 };
 
 const ProjectorView = () => {
-    const [bgImage, setBgImage] = useState("url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1773718259/LUCKY_DRAW_ywoeyw.png')");
+    const [bgImage, setBgImage] = useState("url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1773890794/LUCKY_DRAW_ywoeyw.png')");
     const [prize, setPrize] = useState({ name: "Giải May Mắn", image: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayName, setDisplayName] = useState("");

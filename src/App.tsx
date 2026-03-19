@@ -381,7 +381,7 @@ const ControlView = () => {
         });
         setShowModal(false);
 
-        broadcast({ type: 'SPIN_START', payload: { duration: 2000 } });
+        broadcast({ type: 'SPIN_START', payload: { duration: 10000 } });
 
         let counter = 0;
         const interval = setInterval(() => {

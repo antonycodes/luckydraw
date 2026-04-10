@@ -90,7 +90,7 @@ const Stage = ({
 
 const ProjectorView = () => {
     const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1773899844/Padlet_Background_tsocfo.png")');
-    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds2 Pro", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1774513533/TAI_NGHE_lyjzkf.png" });
+    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1774513533/TAI_NGHE_lyjzkf.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);

@@ -255,7 +255,7 @@ const ProjectorView = () => {
 
 const ControlView = () => {
     const [activeTab, setActiveTab] = useState('settings');
-    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds2 Pro", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
+    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);

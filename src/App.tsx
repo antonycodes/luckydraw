@@ -238,7 +238,7 @@ const ProjectorView = () => {
                             {prize.name}
                         </div>
                         
-                        <div className="text-5xl md:text-7xl font-bold text-red-500 uppercase break-words display-text leading-tight my-2">
+                        <div className="text-5xl md:text-7xl font-bold text-yellow-500 uppercase break-words display-text leading-tight my-2">
                             {modalData.name}
                         </div>
                         

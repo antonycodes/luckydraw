@@ -260,7 +260,7 @@ const ControlView = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1773899844/Padlet_Background_tsocfo.png")');
+    const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");

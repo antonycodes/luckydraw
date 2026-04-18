@@ -193,14 +193,14 @@ const ProjectorView = () => {
                     </div>
                     <div className="bg-white/40 backdrop-blur-xl border border-white/50 shadow-2xl rounded-[30px] px-20 py-10 text-center animate-fade-up">
                         <div className="text-xl font-bold text-gray-600 uppercase tracking-[0.3em] mb-2">Đang quay giải thưởng</div>
-                        <div className="text-5xl text-red-500 font-bold uppercase">{prize.name}</div>
+                        <div className="text-5xl text-yellow-500 font-bold uppercase">{prize.name}</div>
                     </div>
                 </div>
             )}
 
             {overlayState === 'winners' && (
                 <div className="fixed inset-0 bg-cover bg-center backdrop-blur-xl z-[9999] flex flex-col items-center p-10 animate-fade-in" style={{ backgroundImage: bgImage }}>
-                    <h1 className="text-4xl md:text-5xl font-bold text-red-500 uppercase mb-16 drop-shadow-sm flex items-center gap-4 bg-white/90 px-8 py-4 rounded-full shadow-lg">
+                    <h1 className="text-4xl md:text-5xl font-bold text-yellow-500 uppercase mb-16 drop-shadow-sm flex items-center gap-4 bg-white/90 px-8 py-4 rounded-full shadow-lg">
                         <i className="fa-solid fa-list"></i> XIN CHÚC MỪNG
                     </h1>
                     <div className="w-full max-w-5xl flex-grow overflow-y-auto pr-4">

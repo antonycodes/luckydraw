@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import AdminPanel from './AdminPanel';
+import './admin.css';
 
 // --- Utils ---
 const triggerModalConfetti = () => {
@@ -883,10 +885,16 @@ const ControlView = () => {
 };
 
 export default function App() {
-    const isProjector = window.location.search.includes('projector=true');
+    const params = window.location.search;
+    const isProjector = params.includes('projector=true');
+    const isAdmin = params.includes('admin=true');
 
     if (isProjector) {
         return <ProjectorView />;
+    }
+
+    if (isAdmin) {
+        return <AdminPanel />;
     }
 
     return <ControlView />;

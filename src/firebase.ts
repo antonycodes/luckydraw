@@ -11,6 +11,7 @@ const firebaseConfig = {
     authDomain: "realtime-database-ae7e8.firebaseapp.com",
     projectId: "realtime-database-ae7e8",
     storageBucket: "realtime-database-ae7e8.firebasestorage.app",
+    databaseURL: "https://realtime-database-ae7e8-default-rtdb.firebaseio.com",
     messagingSenderId: "100354496957",
     appId: "1:100354496957:web:b3f92925dae08a7fe45ad4",
     measurementId: "G-341Q5WTRBW"

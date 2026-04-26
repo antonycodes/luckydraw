@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners } from './firebase';
 
 const parseCandidates = (text: string) => {
     const lines = text.split('\n').filter(line => line.trim() !== '');
@@ -30,28 +31,20 @@ const AdminPanel = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordError, setPasswordError] = useState(false);
 
-    const channelRef = useRef<BroadcastChannel | null>(null);
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
 
     useEffect(() => {
-        channelRef.current = new BroadcastChannel('lucky_draw_sync');
+        // Listen to Firebase for cross-device sync
+        onWinnersChange((w) => setWinners(w));
+        onCandidatesChange((text) => setInputText(text));
+        onStateChange((data) => {
+            if (data.bgImage !== undefined) setBgImage(data.bgImage);
+            if (data.prize !== undefined) setPrize(data.prize);
+        });
         setConnected(true);
 
-        // Listen for responses from projector/control
-        channelRef.current.onmessage = (event) => {
-            const { type, payload } = event.data;
-            if (type === 'ADMIN_SYNC_RESPONSE') {
-                if (payload.winners) setWinners(payload.winners);
-            }
-        };
-
-        // Request sync on connect
-        setTimeout(() => {
-            broadcast({ type: 'ADMIN_SYNC_REQUEST' });
-        }, 300);
-
-        return () => channelRef.current?.close();
+        return () => detachListeners();
     }, []);
 
     useEffect(() => {
@@ -61,10 +54,6 @@ const AdminPanel = () => {
             audioRef.current = new Audio();
         }
     }, [customSound]);
-
-    const broadcast = (msg: any) => {
-        if (channelRef.current) channelRef.current.postMessage(msg);
-    };
 
     const addLog = (action: string, detail: string) => {
         const time = new Date().toLocaleString('vi-VN');
@@ -109,14 +98,13 @@ const AdminPanel = () => {
         }
 
         const duration = spinDuration * 1000;
-        broadcast({ type: 'UPDATE_PRIZE', payload: prize });
-        broadcast({ type: 'SPIN_START', payload: { duration } });
+        updateStateField('prize', prize);
+        sendCommand('SPIN_START', { duration, candidates: parsedCandidates });
 
         let counter = 0;
         const interval = setInterval(() => {
             const rc = parsedCandidates[Math.floor(Math.random() * parsedCandidates.length)];
             if (counter % 4 === 0) playTickSound();
-            broadcast({ type: 'SPIN_TICK', payload: { text: rc.id, color: '#ffffff' } });
             counter++;
         }, 50);
 
@@ -135,25 +123,29 @@ const AdminPanel = () => {
         const winnerIndex = Math.floor(Math.random() * parsedCandidates.length);
         const winner = parsedCandidates[winnerIndex];
         const winRecord = { ...winner, prizeName: prize.name, prizeImage: prize.image, timestamp: new Date() };
-        setWinners(prev => [winRecord, ...prev]);
+        const newWinners = [winRecord, ...winners];
+        setWinners(newWinners);
+        saveWinners(newWinners);
 
         addLog("WINNER", `${winner.id} - ${winner.name} (${prize.name})`);
 
-        broadcast({ type: 'SPIN_STOP', payload: { id: winner.id } });
+        sendCommand('SPIN_STOP', { id: winner.id });
 
         const name = winner.name || "(Không có tên)";
         setTimeout(() => {
-            broadcast({ type: 'SHOW_NAME', payload: { name } });
+            sendCommand('SHOW_NAME', { name });
         }, 500);
 
         setTimeout(() => {
-            broadcast({ type: 'SHOW_MODAL', payload: { id: winner.id, name } });
+            sendCommand('SHOW_MODAL', { id: winner.id, name });
         }, 2500);
 
         if (removeWinner) {
             const newCandidates = [...parsedCandidates];
             newCandidates.splice(winnerIndex, 1);
-            setInputText(newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n'));
+            const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
+            setInputText(newText);
+            saveCandidates(newText);
             addLog("REMOVE", `Đã loại ${winner.id}`);
         }
 
@@ -161,24 +153,24 @@ const AdminPanel = () => {
     };
 
     const handleReset = () => {
-        broadcast({ type: 'RESET' });
-        broadcast({ type: 'CLOSE_MODAL' });
+        sendCommand('RESET');
+        sendCommand('CLOSE_MODAL');
         addLog("RESET", "Reset màn hình.");
     };
 
     const showPrizeScene = () => {
-        broadcast({ type: 'UPDATE_PRIZE', payload: prize });
-        broadcast({ type: 'SHOW_PRIZE_SCENE', payload: prize });
+        updateStateField('prize', prize);
+        sendCommand('SHOW_PRIZE_SCENE', prize);
         addLog("SHOW_PRIZE", `Giới thiệu: ${prize.name}`);
     };
 
     const showWinnersList = () => {
-        broadcast({ type: 'SHOW_WINNERS_LIST', payload: winners });
+        sendCommand('SHOW_WINNERS_LIST', winners);
         addLog("SHOW_WINNERS", "Chiếu DS trúng thưởng");
     };
 
     const backToSpin = () => {
-        broadcast({ type: 'BACK_TO_SPIN' });
+        sendCommand('BACK_TO_SPIN');
         addLog("BACK", "Quay lại màn hình quay");
     };
 
@@ -188,7 +180,7 @@ const AdminPanel = () => {
             reader.onload = (ev) => {
                 const url = `url(${ev.target?.result})`;
                 setBgImage(url);
-                broadcast({ type: 'UPDATE_BG', payload: url });
+                updateStateField('bgImage', url);
                 addLog("BG_CHANGE", "Đổi ảnh nền");
             };
             reader.readAsDataURL(e.target.files[0]);
@@ -201,7 +193,7 @@ const AdminPanel = () => {
             reader.onload = (ev) => {
                 const newPrize = { ...prize, image: ev.target?.result as string };
                 setPrize(newPrize);
-                broadcast({ type: 'UPDATE_PRIZE', payload: newPrize });
+                updateStateField('prize', newPrize);
                 addLog("PRIZE_IMG", `Đổi ảnh: ${newPrize.name}`);
             };
             reader.readAsDataURL(e.target.files[0]);
@@ -257,10 +249,9 @@ const AdminPanel = () => {
         );
         if (!win) { alert("⚠️ Pop-up bị chặn!"); return; }
         win.focus();
-        setTimeout(() => {
-            broadcast({ type: 'UPDATE_BG', payload: bgImage });
-            broadcast({ type: 'UPDATE_PRIZE', payload: prize });
-        }, 500);
+        // State is already in Firebase, projector will pick it up
+        updateStateField('bgImage', bgImage);
+        updateStateField('prize', prize);
     };
 
     const candidateCount = parseCandidates(inputText).length;
@@ -464,7 +455,7 @@ const AdminPanel = () => {
                                 <span>Ẩn / Back</span>
                             </button>
 
-                            <button onClick={() => { broadcast({ type: 'CLOSE_MODAL' }); addLog("CLOSE_MODAL", "Đóng modal"); }} className="action-btn close-btn">
+                            <button onClick={() => { sendCommand('CLOSE_MODAL'); addLog("CLOSE_MODAL", "Đóng modal"); }} className="action-btn close-btn">
                                 <i className="fa-solid fa-xmark"></i>
                                 <span>Đóng Modal</span>
                             </button>
@@ -492,7 +483,7 @@ const AdminPanel = () => {
                                         onChange={e => {
                                             const p = { ...prize, name: e.target.value || "Giải Thưởng" };
                                             setPrize(p);
-                                            broadcast({ type: 'UPDATE_PRIZE', payload: p });
+                                            updateStateField('prize', p);
                                         }}
                                         className="admin-input"
                                         placeholder="VD: Giải Nhất..."

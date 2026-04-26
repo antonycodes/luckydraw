@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import AdminPanel from './AdminPanel';
 import './admin.css';
+import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners } from './firebase';
 
 // --- Utils ---
 const triggerModalConfetti = () => {
@@ -104,56 +105,71 @@ const ProjectorView = () => {
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [overlayState, setOverlayState] = useState('none'); 
     const [winners, setWinners] = useState<any[]>([]);
+    const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
-        const channel = new BroadcastChannel('lucky_draw_sync');
-        channel.onmessage = (event) => {
-            const { type, payload } = event.data;
+        // Listen to state changes from Firebase
+        onStateChange((data) => {
+            if (data.bgImage !== undefined) setBgImage(data.bgImage);
+            if (data.prize !== undefined) setPrize(data.prize);
+        });
+
+        // Listen to winners from Firebase
+        onWinnersChange((w) => setWinners(w));
+
+        // Listen to commands from Firebase
+        onCommandChange((cmd) => {
+            const { type, payload } = cmd;
             switch (type) {
-                case 'UPDATE_BG': setBgImage(payload); break;
-                case 'UPDATE_PRIZE': setPrize(payload); break;
                 case 'SHOW_PRIZE_SCENE': 
                     setOverlayState('prize'); 
-                    setPrize(payload);
+                    if (payload) setPrize(payload);
                     break;
                 case 'SHOW_WINNERS_LIST':
                     setOverlayState('winners');
-                    setWinners(payload);
                     break;
                 case 'BACK_TO_SPIN':
                     setOverlayState('none');
                     setShowModal(false);
                     break;
-                case 'SPIN_TICK':
-                    setDisplayId(payload.text);
-                    setShowName(false);
-                    break;
-                case 'SPIN_START':
+                case 'SPIN_START': {
                     setOverlayState('none');
                     setIsRolling(true);
                     setShowName(false);
                     setShowTimer(true);
                     setTimerWidth('100%');
                     setTimerTransition('none');
+                    const duration = payload?.duration || 10000;
+                    const candidates = payload?.candidates || [];
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             setTimerWidth('0%');
-                            setTimerTransition(`width ${payload.duration}ms linear`);
+                            setTimerTransition(`width ${duration}ms linear`);
                         });
                     });
+                    // Run local spin animation
+                    if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
+                    if (candidates.length > 0) {
+                        spinIntervalRef.current = setInterval(() => {
+                            const rc = candidates[Math.floor(Math.random() * candidates.length)];
+                            setDisplayId(rc.id || rc);
+                        }, 50);
+                    }
                     break;
+                }
                 case 'SPIN_STOP':
+                    if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setIsRolling(false);
-                    setDisplayId(payload.id);
+                    setDisplayId(payload?.id || '');
                     setShowTimer(false);
                     break;
                 case 'SHOW_NAME':
-                    setDisplayName(payload.name);
+                    setDisplayName(payload?.name || '');
                     setShowName(true);
                     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
                     break;
                 case 'SHOW_MODAL':
-                    setModalData(payload);
+                    setModalData(payload || { id: '', name: '' });
                     setOverlayState('none');
                     setShowModal(true);
                     triggerModalConfetti();
@@ -162,13 +178,16 @@ const ProjectorView = () => {
                     setShowModal(false);
                     break;
                 case 'RESET':
+                    if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setOverlayState('none');
                     setDisplayId("ARE YOU READY ?");
                     setShowName(false);
+                    setShowModal(false);
                     break;
             }
-        };
-        return () => channel.close();
+        });
+
+        return () => detachListeners();
     }, []);
 
     return (
@@ -279,13 +298,13 @@ const ControlView = () => {
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [isFullscreen, setIsFullscreen] = useState(false);
 
-    const channelRef = useRef<BroadcastChannel | null>(null);
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
 
     useEffect(() => {
-        channelRef.current = new BroadcastChannel('lucky_draw_sync');
-        return () => channelRef.current?.close();
+        // Listen to winners from Firebase to keep in sync
+        onWinnersChange((w) => setWinners(w));
+        return () => detachListeners();
     }, []);
 
     useEffect(() => {
@@ -303,12 +322,6 @@ const ControlView = () => {
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
-
-    const broadcast = (msg: any) => {
-        if (channelRef.current) {
-            channelRef.current.postMessage(msg);
-        }
-    };
 
     const addLog = (action: string, detail: string) => {
         const time = new Date().toLocaleString('vi-VN');
@@ -383,15 +396,14 @@ const ControlView = () => {
         });
         setShowModal(false);
 
-        broadcast({ type: 'SPIN_START', payload: { duration: 10000 } });
+        // Send spin command to Firebase with candidates for local animation
+        sendCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates });
 
         let counter = 0;
         const interval = setInterval(() => {
             const randomCandidate = parsedCandidates[Math.floor(Math.random() * parsedCandidates.length)];
             setDisplayId(randomCandidate.id);
-            
             if (counter % 4 === 0) playTickSound();
-            broadcast({ type: 'SPIN_TICK', payload: { text: randomCandidate.id, color: '#ffffff' } });
             counter++;
         }, 50);
 
@@ -414,25 +426,27 @@ const ControlView = () => {
         const winner = parsedCandidates[winnerIndex];
         
         const winRecord = { ...winner, prizeName: prize.name, prizeImage: prize.image, timestamp: new Date() };
-        setWinners(prev => [winRecord, ...prev]);
+        const newWinners = [winRecord, ...winners];
+        setWinners(newWinners);
+        saveWinners(newWinners);
 
         addLog("WINNER_FOUND", `Người trúng: ${winner.id} - ${winner.name} (Giải: ${prize.name})`);
 
         setDisplayId(winner.id);
-        broadcast({ type: 'SPIN_STOP', payload: { id: winner.id } });
+        sendCommand('SPIN_STOP', { id: winner.id });
 
         const name = winner.name || "(Không có tên)";
         setDisplayName(name);
         setShowName(true);
         playWinSound();
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        broadcast({ type: 'SHOW_NAME', payload: { name: name } });
+        setTimeout(() => sendCommand('SHOW_NAME', { name }), 500);
 
         setTimeout(() => {
             setModalData({ id: winner.id, name: name });
             setShowModal(true);
             triggerModalConfetti();
-            broadcast({ type: 'SHOW_MODAL', payload: { id: winner.id, name: name } });
+            sendCommand('SHOW_MODAL', { id: winner.id, name: name });
         }, 2000);
 
         if (removeWinner) {
@@ -440,6 +454,7 @@ const ControlView = () => {
             newCandidates.splice(winnerIndex, 1);
             const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
             setInputText(newText);
+            saveCandidates(newText);
             addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
         }
 
@@ -449,17 +464,17 @@ const ControlView = () => {
     const handleReset = () => {
         setDisplayId("ARE YOU READY ?");
         setShowName(false);
-        broadcast({ type: 'RESET' });
+        sendCommand('RESET');
         addLog("RESET", "Reset màn hình hiển thị.");
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
-        broadcast({ type: 'CLOSE_MODAL' });
+        sendCommand('CLOSE_MODAL');
         setTimeout(() => {
             setDisplayId("ARE YOU READY ?");
             setShowName(false);
-            broadcast({ type: 'RESET' });
+            sendCommand('RESET');
         }, 300);
     };
 
@@ -476,39 +491,32 @@ const ControlView = () => {
     };
 
     const openProjectorWindow = () => {
-    const width = window.screen.availWidth;
-    const height = window.screen.availHeight;
+        const width = window.screen.availWidth;
+        const height = window.screen.availHeight;
 
-    const win = window.open(
-        `${window.location.origin}${window.location.pathname}?projector=true`,
-        '_blank',
-        `popup=yes,width=${width},height=${height},top=0,left=0`
-    );
+        const win = window.open(
+            `${window.location.origin}${window.location.pathname}?projector=true`,
+            '_blank',
+            `popup=yes,width=${width},height=${height},top=0,left=0`
+        );
 
-    if (!win) {
-        alert("⚠️ Cửa sổ bị chặn! Hãy cho phép pop-up.");
-        return;
-    }
-
-    // Focus vào window mới
-    win.focus();
-
-    // Sync data sau khi mở
-    setTimeout(() => {
-        broadcast({ type: 'UPDATE_BG', payload: bgImage });
-        broadcast({ type: 'UPDATE_PRIZE', payload: prize });
-        if (customSound) {
-            broadcast({ type: 'UPDATE_SOUND', payload: customSound });
+        if (!win) {
+            alert("⚠️ Cửa sổ bị chặn! Hãy cho phép pop-up.");
+            return;
         }
-    }, 500);
-};
+        win.focus();
+
+        // Sync state to Firebase so projector picks it up
+        updateStateField('bgImage', bgImage);
+        updateStateField('prize', prize);
+    };
     const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const url = `url(${ev.target?.result})`;
                 setBgImage(url);
-                broadcast({ type: 'UPDATE_BG', payload: url });
+                updateStateField('bgImage', url);
             };
             reader.readAsDataURL(e.target.files[0]);
         }
@@ -520,7 +528,7 @@ const ControlView = () => {
             reader.onload = (ev) => {
                 const newPrize = { ...prize, image: ev.target?.result as string };
                 setPrize(newPrize);
-                broadcast({ type: 'UPDATE_PRIZE', payload: newPrize });
+                updateStateField('prize', newPrize);
                 addLog("PRIZE_UPDATE", `Đổi ảnh giải thưởng: ${newPrize.name}`);
             };
             reader.readAsDataURL(e.target.files[0]);
@@ -536,7 +544,6 @@ const ControlView = () => {
                 setCustomSound(audioSrc);
                 setSoundName(file.name);
                 addLog("SOUND_UPDATE", `Đã tải nhạc nền: ${file.name}`);
-                broadcast({ type: 'UPDATE_SOUND', payload: audioSrc });
             };
             reader.readAsDataURL(file);
         }
@@ -550,7 +557,6 @@ const ControlView = () => {
         setCustomSound(null);
         setSoundName('Chọn file MP3/WAV...');
         addLog("SOUND_CLEAR", "Đã xóa nhạc tùy chỉnh.");
-        broadcast({ type: 'UPDATE_SOUND', payload: null });
     };
 
     const testSound = () => {
@@ -715,7 +721,7 @@ const ControlView = () => {
                                         <input type="text" value={prize.name} onChange={e => {
                                             const newPrize = { ...prize, name: e.target.value || "Giải Thưởng" };
                                             setPrize(newPrize);
-                                            broadcast({ type: 'UPDATE_PRIZE', payload: newPrize });
+                                            updateStateField('prize', newPrize);
                                         }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-800 font-bold transition-all shadow-sm" placeholder="VD: Giải Nhất..." />
                                     </div>
                                     
@@ -735,10 +741,10 @@ const ControlView = () => {
                                     </div>
 
                                     <div className="pt-5 border-t border-gray-100 grid grid-cols-2 gap-3">
-                                        <button onClick={() => { addLog("SHOW_PRIZE", "Hiển thị giới thiệu giải thưởng"); broadcast({ type: 'SHOW_PRIZE_SCENE', payload: prize }); }} className="py-2.5 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white rounded-xl font-bold shadow-md transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
+                                        <button onClick={() => { addLog("SHOW_PRIZE", "Hiển thị giới thiệu giải thưởng"); sendCommand('SHOW_PRIZE_SCENE', prize); }} className="py-2.5 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white rounded-xl font-bold shadow-md transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
                                             <i className="fa-solid fa-desktop"></i> Chiếu Giới Thiệu
                                         </button>
-                                        <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); broadcast({ type: 'BACK_TO_SPIN' }); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold shadow-sm transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm border border-gray-200">
+                                        <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); sendCommand('BACK_TO_SPIN'); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold shadow-sm transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm border border-gray-200">
                                             <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
                                         </button>
                                     </div>
@@ -807,10 +813,10 @@ const ControlView = () => {
                             <p className="text-gray-500 text-sm mt-1">Lịch sử các giải thưởng đã trao</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => { addLog("SHOW_WINNERS", "Hiển thị danh sách trúng thưởng lên màn hình chiếu"); broadcast({ type: 'SHOW_WINNERS_LIST', payload: winners }); }} className="px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200 font-semibold shadow-sm flex items-center gap-2">
+                            <button onClick={() => { addLog("SHOW_WINNERS", "Hiển thị danh sách trúng thưởng lên màn hình chiếu"); sendCommand('SHOW_WINNERS_LIST', winners); }} className="px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-tv"></i> Chiếu DS
                             </button>
-                            <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); broadcast({ type: 'BACK_TO_SPIN' }); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300 font-semibold shadow-sm flex items-center gap-2">
+                            <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); sendCommand('BACK_TO_SPIN'); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
                             </button>
                             <div className="w-[1px] h-8 bg-gray-300 mx-2"></div>

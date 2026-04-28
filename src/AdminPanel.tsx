@@ -11,7 +11,7 @@ const parseCandidates = (text: string) => {
     });
 };
 
-const ADMIN_PASSWORD = 'cps2026';
+const ADMIN_PASSWORD = 'antony12345';
 
 const AdminPanel = () => {
     const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
@@ -24,6 +24,7 @@ const AdminPanel = () => {
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
     const [activeSection, setActiveSection] = useState('winners');
+    const [activeScene, setActiveScene] = useState<'spin' | 'prize' | 'winners'>('spin');
     const [spinDuration, setSpinDuration] = useState(10);
     const [connected, setConnected] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -90,6 +91,7 @@ const AdminPanel = () => {
         if (isSpinning) return;
 
         setIsSpinning(true);
+        setActiveScene('spin');
         addLog("SPIN_START", `Bắt đầu quay giải: ${prize.name}. SL: ${parsedCandidates.length}`);
 
         if (customSound && audioRef.current) {
@@ -155,22 +157,29 @@ const AdminPanel = () => {
     const handleReset = () => {
         sendCommand('RESET');
         sendCommand('CLOSE_MODAL');
+        setActiveScene('spin');
         addLog("RESET", "Reset màn hình.");
     };
 
     const showPrizeScene = () => {
+        if (activeScene === 'prize') { backToSpin(); return; }
         updateStateField('prize', prize);
         sendCommand('SHOW_PRIZE_SCENE', prize);
+        setActiveScene('prize');
         addLog("SHOW_PRIZE", `Giới thiệu: ${prize.name}`);
     };
 
     const showWinnersList = () => {
+        if (activeScene === 'winners') { backToSpin(); return; }
         sendCommand('SHOW_WINNERS_LIST', winners);
+        setActiveScene('winners');
         addLog("SHOW_WINNERS", "Chiếu DS trúng thưởng");
     };
 
     const backToSpin = () => {
         sendCommand('BACK_TO_SPIN');
+        sendCommand('CLOSE_MODAL');
+        setActiveScene('spin');
         addLog("BACK", "Quay lại màn hình quay");
     };
 
@@ -239,21 +248,6 @@ const AdminPanel = () => {
         document.body.removeChild(link);
     };
 
-    const openProjectorWindow = () => {
-        const w = window.screen.availWidth;
-        const h = window.screen.availHeight;
-        const win = window.open(
-            `${window.location.origin}${window.location.pathname}?projector=true`,
-            '_blank',
-            `popup=yes,width=${w},height=${h},top=0,left=0`
-        );
-        if (!win) { alert("⚠️ Pop-up bị chặn!"); return; }
-        win.focus();
-        // State is already in Firebase, projector will pick it up
-        updateStateField('bgImage', bgImage);
-        updateStateField('prize', prize);
-    };
-
     const candidateCount = parseCandidates(inputText).length;
 
     const handlePasswordSubmit = () => {
@@ -289,13 +283,7 @@ const AdminPanel = () => {
             {/* Sidebar */}
             <aside className="admin-sidebar">
                 <div className="sidebar-brand">
-                    <div className="brand-icon">
-                        <i className="fa-solid fa-wand-magic-sparkles"></i>
-                    </div>
-                    <div>
-                        <h1 className="brand-title">Admin Panel</h1>
-                        <p className="brand-sub">Lucky Draw Controller</p>
-                    </div>
+                    <h1 className="brand-title">Admin Control</h1>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -325,25 +313,20 @@ const AdminPanel = () => {
                 </nav>
 
                 <div className="sidebar-footer">
+                    <div className="mobile-header-title">Admin Control</div>
                     <div className={`status-badge ${connected ? 'online' : 'offline'}`}>
                         <span className="status-dot"></span>
-                        {connected ? 'Đã kết nối' : 'Mất kết nối'}
+                        <span>{connected ? 'Đã kết nối' : 'Mất kết nối'}</span>
                     </div>
                     {isAuthenticated ? (
-                        <>
-                            <button onClick={openProjectorWindow} className="projector-btn">
-                                <i className="fa-solid fa-up-right-from-square"></i>
-                                Mở Projector
-                            </button>
-                            <button onClick={handleLogout} className="projector-btn" style={{ borderColor: 'rgba(248,113,113,0.3)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
-                                <i className="fa-solid fa-right-from-bracket"></i>
-                                Đăng xuất
-                            </button>
-                        </>
+                        <button onClick={handleLogout} className="projector-btn" style={{ borderColor: 'rgba(248,113,113,0.3)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
+                            <i className="fa-solid fa-right-from-bracket"></i>
+                            <span>Đăng xuất</span>
+                        </button>
                     ) : (
                         <button onClick={() => setShowPasswordModal(true)} className="projector-btn">
                             <i className="fa-solid fa-lock"></i>
-                            Đăng nhập Admin
+                            <span>Đăng nhập Admin</span>
                         </button>
                     )}
                 </div>
@@ -355,8 +338,11 @@ const AdminPanel = () => {
                 {showPasswordModal && (
                     <div className="password-overlay" onClick={() => { setShowPasswordModal(false); setPasswordError(false); setPasswordInput(''); }}>
                         <div className="password-modal" onClick={e => e.stopPropagation()}>
+                            <button className="modal-close-btn" onClick={() => setShowPasswordModal(false)}>
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
                             <div className="password-icon">
-                                <i className="fa-solid fa-shield-halved"></i>
+                                <i className="fa-solid fa-lock"></i>
                             </div>
                             <h3>Xác thực Admin</h3>
                             <p>Nhập mật khẩu để truy cập chức năng quản trị</p>
@@ -366,11 +352,14 @@ const AdminPanel = () => {
                                     value={passwordInput}
                                     onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
                                     className={`admin-input password-input ${passwordError ? 'error' : ''}`}
-                                    placeholder="Nhập mật khẩu..."
+                                    placeholder="••••••••"
                                     autoFocus
                                 />
                                 {passwordError && <div className="password-error">Sai mật khẩu. Vui lòng thử lại.</div>}
-                                <button type="submit" className="password-submit">Đăng nhập</button>
+                                <button type="submit" className="password-submit">
+                                    <span>Đăng nhập</span>
+                                    <i className="fa-solid fa-arrow-right-to-bracket"></i>
+                                </button>
                             </form>
                         </div>
                     </div>
@@ -440,24 +429,19 @@ const AdminPanel = () => {
                                 <span>Reset</span>
                             </button>
 
-                            <button onClick={showPrizeScene} className="action-btn prize-btn">
-                                <i className="fa-solid fa-gift"></i>
-                                <span>Giới thiệu giải</span>
+                            <button onClick={showPrizeScene} className={`action-btn prize-btn ${activeScene === 'prize' ? 'active' : ''}`}>
+                                <i className={`fa-solid ${activeScene === 'prize' ? 'fa-rotate-left' : 'fa-gift'}`}></i>
+                                <span>{activeScene === 'prize' ? 'Ẩn giải' : 'Giới thiệu giải'}</span>
                             </button>
 
-                            <button onClick={showWinnersList} className="action-btn winners-btn">
-                                <i className="fa-solid fa-list"></i>
-                                <span>Chiếu DS</span>
+                            <button onClick={showWinnersList} className={`action-btn winners-btn ${activeScene === 'winners' ? 'active' : ''}`}>
+                                <i className={`fa-solid ${activeScene === 'winners' ? 'fa-rotate-left' : 'fa-list'}`}></i>
+                                <span>{activeScene === 'winners' ? 'Ẩn DS' : 'Chiếu DS'}</span>
                             </button>
 
                             <button onClick={backToSpin} className="action-btn back-btn">
                                 <i className="fa-solid fa-rotate-left"></i>
                                 <span>Ẩn / Back</span>
-                            </button>
-
-                            <button onClick={() => { sendCommand('CLOSE_MODAL'); addLog("CLOSE_MODAL", "Đóng modal"); }} className="action-btn close-btn">
-                                <i className="fa-solid fa-xmark"></i>
-                                <span>Đóng Modal</span>
                             </button>
                         </div>
                     </div>

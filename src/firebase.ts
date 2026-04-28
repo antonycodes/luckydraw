@@ -9,9 +9,9 @@ import { getDatabase, ref, set, onValue, off, DatabaseReference } from 'firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDj9xyuE6a5xY0ZH9V79dSX3DrJS_L8TqI",
     authDomain: "realtime-database-ae7e8.firebaseapp.com",
+    databaseURL: "https://realtime-database-ae7e8-default-rtdb.firebaseio.com",
     projectId: "realtime-database-ae7e8",
     storageBucket: "realtime-database-ae7e8.firebasestorage.app",
-    databaseURL: "https://realtime-database-ae7e8-default-rtdb.firebaseio.com",
     messagingSenderId: "100354496957",
     appId: "1:100354496957:web:b3f92925dae08a7fe45ad4",
     measurementId: "G-341Q5WTRBW"

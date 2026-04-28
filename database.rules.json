@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "lucky_draw": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

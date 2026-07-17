@@ -4,13 +4,17 @@ import AdminPanel from './AdminPanel';
 import './admin.css';
 import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners } from './firebase';
 
+// --- Theme ---
+const DEFAULT_BG = 'radial-gradient(ellipse at 50% 35%, #2a0202 0%, #120000 55%, #000000 100%)';
+const CONFETTI_COLORS = ['#ff3b3b', '#ffd166', '#ffffff', '#ff8080'];
+
 // --- Utils ---
 const triggerModalConfetti = () => {
     const duration = 3000;
     const end = Date.now() + duration;
     (function frame() {
-        confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#ff0000', '#00ff00', '#0000ff'] });
-        confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ff0000', '#00ff00', '#0000ff'] });
+        confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: CONFETTI_COLORS });
+        confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: CONFETTI_COLORS });
         if (Date.now() < end) requestAnimationFrame(frame);
     }());
 };
@@ -21,60 +25,143 @@ const parseCandidates = (text: string) => {
         let parts = line.split(',');
         if (parts.length < 2) parts = line.split('-');
         if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
-        return { id: line.trim(), name: "" }; 
+        return { id: line.trim(), name: "" };
     });
 };
 
 // --- Components ---
-const Stage = ({ 
-    prize, displayId, displayName, showName, isRolling, 
-    showTimer, timerWidth, timerTransition, showControls = true, 
-    onSpin, isSpinning, onReset, showModal = false
+// Shrinks its single-line content to fit the container width, so text never wraps.
+const FitText = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
+    const boxRef = useRef<HTMLDivElement>(null);
+    const textRef = useRef<HTMLSpanElement>(null);
+    useEffect(() => {
+        const box = boxRef.current, el = textRef.current;
+        if (!box || !el) return;
+        const fit = () => {
+            el.style.fontSize = '';
+            const avail = box.clientWidth;
+            const natural = el.scrollWidth;
+            if (avail > 0 && natural > avail) {
+                const base = parseFloat(getComputedStyle(el).fontSize);
+                el.style.fontSize = `${(base * avail / natural).toFixed(2)}px`;
+            }
+        };
+        fit();
+        const ro = new ResizeObserver(fit);
+        ro.observe(box);
+        return () => ro.disconnect();
+    }, [children]);
+    return (
+        <div ref={boxRef} className={`w-full text-center ${className}`}>
+            <span ref={textRef} className="inline-block whitespace-nowrap align-top">
+                {children}
+            </span>
+        </div>
+    );
+};
+
+const LuckyWheel = ({ isRolling }: { isRolling: boolean }) => {
+    const CX = 250, CY = 262, R = 200;
+    const wedges = Array.from({ length: 20 }, (_, i) => {
+        const a0 = (i / 20) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((i + 1) / 20) * Math.PI * 2 - Math.PI / 2;
+        return {
+            d: `M${CX} ${CY} L${CX + R * Math.cos(a0)} ${CY + R * Math.sin(a0)} A${R} ${R} 0 0 1 ${CX + R * Math.cos(a1)} ${CY + R * Math.sin(a1)} Z`,
+            red: i % 2 === 0
+        };
+    });
+    const bulbs = Array.from({ length: 18 }, (_, i) => {
+        const angle = (i / 18) * Math.PI * 2 - Math.PI / 2;
+        return { x: CX + (R + 13) * Math.cos(angle), y: CY + (R + 13) * Math.sin(angle), even: i % 2 === 0 };
+    });
+    return (
+        <svg viewBox="0 0 500 505" className="w-full h-full" aria-hidden="true">
+            <defs>
+                <radialGradient id="hubFace" cx="38%" cy="32%" r="85%">
+                    <stop offset="0%" stopColor="#2a0505" />
+                    <stop offset="100%" stopColor="#0d0101" />
+                </radialGradient>
+                <filter id="neonGlow" x="-60%" y="-60%" width="220%" height="220%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+                <filter id="neonGlowWide" x="-80%" y="-80%" width="260%" height="260%">
+                    <feGaussianBlur stdDeviation="9" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+                <clipPath id="hubClip">
+                    <circle cx={CX} cy={CY} r="52" />
+                </clipPath>
+            </defs>
+
+            {/* Halo + rim band with bulbs */}
+            <circle cx={CX} cy={CY} r={R + 13} fill="none" stroke="rgba(255,25,25,0.25)" strokeWidth="18" filter="url(#neonGlowWide)" />
+            <circle cx={CX} cy={CY} r={R + 13} fill="none" stroke="#150202" strokeWidth="24" />
+            <circle cx={CX} cy={CY} r={R + 26} fill="none" stroke="#ff1e1e" strokeWidth="2.5" filter="url(#neonGlow)" />
+            <circle cx={CX} cy={CY} r={R + 1} fill="none" stroke="#ff1e1e" strokeWidth="2.5" filter="url(#neonGlow)" />
+
+            {/* Alternating neon red / near-black wedges */}
+            <circle cx={CX} cy={CY} r={R} fill="#120202" />
+            <g className={isRolling ? 'wheel-spinning' : ''} style={{ transformOrigin: `${CX}px ${CY}px` }}>
+                {wedges.map((w, i) => (
+                    <path key={i} d={w.d} fill={w.red ? '#9e1010' : '#1c0505'} />
+                ))}
+            </g>
+
+            {/* Rim bulbs */}
+            {bulbs.map((b, i) => (
+                <circle key={i} cx={b.x} cy={b.y} r="5.5" fill="#fff8f8" filter="url(#neonGlow)" className={b.even ? 'bulb-a' : 'bulb-b'} />
+            ))}
+
+            {/* Mascot hub */}
+            <circle cx={CX} cy={CY} r="66" fill="url(#hubFace)" />
+            <circle cx={CX} cy={CY} r="58" fill="#ffffff" />
+            <image href="/Chibi head.png" x={CX - 46} y={CY - 46} width="92" height="92" clipPath="url(#hubClip)" preserveAspectRatio="xMidYMid meet" />
+            <circle cx={CX} cy={CY} r="62" fill="none" stroke="#ff2a2a" strokeWidth="3" filter="url(#neonGlow)" />
+
+            {/* Top pointer */}
+            <polygon points={`${CX - 26},6 ${CX + 26},6 ${CX},56`} fill="#e01818" stroke="#ff5050" strokeWidth="2" filter="url(#neonGlow)" />
+        </svg>
+    );
+};
+
+const Stage = ({
+    displayId, displayName, showName, isRolling,
+    showControls = true, onSpin, isSpinning, onReset, showModal = false
 }: any) => {
     return (
-        <div className={`w-full max-w-6xl ${showControls ? 'glass-panel-stage rounded-3xl p-6' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] pb-32`}>
-            <div className={`absolute top-6 left-6 md:left-10 flex items-center gap-4 animate-fade-up transition-opacity duration-500 ${showModal ? 'opacity-0' : 'opacity-100'}`}>
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-white/90 rounded-2xl p-2 shadow-xl transform rotate-3 border-2 border-yellow-400">
-                    <img src={prize.image} className="w-full h-full object-contain" alt="Prize" />
+        <div className={`w-full ${showControls ? 'glass-panel-stage rounded-3xl p-6' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] pb-28`}>
+            <div className={`w-full flex-grow flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 px-6 md:px-16 mt-4 transition-all duration-500 ${showModal ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-w-0 w-full">
+                    <div className="absolute w-[80%] h-[80%] bg-red-600 rounded-full filter blur-3xl opacity-20 -z-10"></div>
+                    <FitText className={`text-[clamp(3rem,10vw,12rem)] font-extrabold text-white leading-[1.05] display-text transition-all duration-100 font-sans tracking-tight ${isRolling ? 'rolling' : ''}`}>
+                        {displayId}
+                    </FitText>
+                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold mt-4 min-h-12 transition-opacity duration-500 ${showName ? 'opacity-100' : 'opacity-0'}`}>
+                        {displayName}
+                    </FitText>
                 </div>
-                <div>
-                    <div className="text-white/80 text-sm font-bold uppercase tracking-wider shadow-black drop-shadow-md">Đang quay giải</div>
-                    <div className="text-2xl md:text-4xl font-bold text-yellow-300 drop-shadow-lg">{prize.name}</div>
-                </div>
-            </div>
 
-            <div className={`relative w-full flex flex-col items-center justify-center mb-8 mt-20 transition-all duration-500 ${showModal ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-                <div className="absolute w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 left-1/4"></div>
-                <div className="absolute w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 top-0 right-1/4"></div>
-
-                <div className={`relative z-10 text-[4rem] md:text-[8rem] font-bold text-white text-center break-words w-full px-4 leading-none display-text transition-all duration-100 font-sans tracking-tighter py-4 ${isRolling ? 'rolling' : ''}`}>
-                    {displayId}
-                </div>
-                <div className={`relative z-10 text-2xl md:text-4xl font-bold text-white text-center mt-2 h-12 transition-opacity duration-500 display-text ${showName ? 'opacity-100' : 'opacity-0'}`}>
-                    {displayName}
-                </div>
-            </div>
-
-            <div className={`w-full max-w-lg h-4 bg-gray-200/30 rounded-full mb-8 overflow-visible relative shadow-inner backdrop-blur-sm z-20 ${showTimer ? 'block' : 'hidden'}`}>
-                <div 
-                    className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full relative overflow-visible"
-                    style={{ width: timerWidth, transition: timerTransition }}
-                >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-20 h-20 shrink-0 flex items-center justify-center z-30">
-                        <img src="/Chibi head.png" alt="Timer Icon" className="w-full h-full object-contain drop-shadow-lg" />
-                    </div>
+                <div className="relative h-[36vh] md:h-[64vh] aspect-[500/505] max-w-[88vw] shrink-0">
+                    <LuckyWheel isRolling={isRolling} />
                 </div>
             </div>
 
             {showControls && (
-                <div className="absolute bottom-10 z-50">
-                    <button 
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50">
+                    <button
                         onClick={onSpin}
                         disabled={isSpinning}
-                        className={`group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-200 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full focus:outline-none shadow-xl ${isSpinning ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 hover:shadow-blue-500/50'}`}
+                        className={`group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-gradient-to-b from-red-500 to-red-700 border border-red-300/60 rounded-full focus:outline-none shadow-[0_0_25px_rgba(255,40,40,0.7)] ${isSpinning ? 'opacity-75 cursor-not-allowed' : 'hover:scale-105 hover:shadow-[0_0_45px_rgba(255,60,60,0.9)]'}`}
                     >
                         <span className="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-80 group-hover:h-80 opacity-10"></span>
-                        <span className="relative flex items-center gap-3 text-xl">
+                        <span className="relative flex items-center gap-3 text-xl uppercase tracking-wider">
                             <i className="fa-solid fa-play"></i>
                             <span>{isSpinning ? "ĐANG QUAY..." : "QUAY"}</span>
                         </span>
@@ -83,7 +170,7 @@ const Stage = ({
             )}
 
             {showControls && (
-                <button onClick={onReset} className="absolute top-8 right-8 text-gray-400 hover:text-gray-600 transition-colors bg-white/20 p-3 rounded-full hover:bg-white" title="Reset màn hình">
+                <button onClick={onReset} className="absolute top-8 right-8 z-30 text-red-200 hover:text-white transition-colors bg-white/10 border border-red-500/40 p-4 rounded-full hover:bg-red-500/40" title="Reset màn hình">
                     <i className="fa-solid fa-rotate-right text-xl"></i>
                 </button>
             )}
@@ -92,7 +179,7 @@ const Stage = ({
 };
 
 const ProjectorView = () => {
-    const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
+    const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1774513533/TAI_NGHE_lyjzkf.png" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayName, setDisplayName] = useState("");
@@ -103,7 +190,7 @@ const ProjectorView = () => {
     const [timerTransition, setTimerTransition] = useState('none');
     const [showModal, setShowModal] = useState(false);
     const [modalData, setModalData] = useState({ id: '', name: '' });
-    const [overlayState, setOverlayState] = useState('none'); 
+    const [overlayState, setOverlayState] = useState('none');
     const [winners, setWinners] = useState<any[]>([]);
     const spinIntervalRef = useRef<any>(null);
 
@@ -121,8 +208,8 @@ const ProjectorView = () => {
         onCommandChange((cmd) => {
             const { type, payload } = cmd;
             switch (type) {
-                case 'SHOW_PRIZE_SCENE': 
-                    setOverlayState('prize'); 
+                case 'SHOW_PRIZE_SCENE':
+                    setOverlayState('prize');
                     if (payload) setPrize(payload);
                     break;
                 case 'SHOW_WINNERS_LIST':
@@ -166,7 +253,7 @@ const ProjectorView = () => {
                 case 'SHOW_NAME':
                     setDisplayName(payload?.name || '');
                     setShowName(true);
-                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
                     break;
                 case 'SHOW_MODAL':
                     setModalData(payload || { id: '', name: '' });
@@ -191,54 +278,54 @@ const ProjectorView = () => {
     }, []);
 
     return (
-        <div className="w-screen h-screen overflow-hidden bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: bgImage }}>
+        <div className="relative w-screen h-screen overflow-hidden bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: bgImage }}>
+            <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {overlayState === 'none' && (
-                <Stage 
-                    prize={prize}
+                <Stage
                     displayId={displayId}
                     displayName={displayName}
                     showName={showName}
                     isRolling={isRolling}
-                    showTimer={showTimer}
-                    timerWidth={timerWidth}
-                    timerTransition={timerTransition}
                     showControls={false}
                     showModal={showModal}
                 />
             )}
 
             {overlayState === 'prize' && (
-                <div className="fixed inset-0 bg-white/40 backdrop-blur-md z-[9999] flex flex-col items-center justify-center animate-fade-in">
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center animate-fade-in" style={{ backgroundImage: DEFAULT_BG }}>
+                    <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                     <div className="relative w-[50vh] h-[50vh] mb-10">
+                        <div className="absolute inset-0 bg-red-500 rounded-full filter blur-3xl opacity-30"></div>
                         <img src={prize.image} className="w-full h-full object-contain relative z-10 drop-shadow-2xl animate-zoom-in prize-pulse" alt="Prize" />
                     </div>
-                    <div className="bg-white/40 backdrop-blur-xl border border-white/50 shadow-2xl rounded-[30px] px-20 py-10 text-center animate-fade-up">
-                        <div className="text-xl font-bold text-gray-600 uppercase tracking-[0.3em] mb-2">Đang quay giải thưởng</div>
-                        <div className="text-5xl text-yellow-500 font-bold uppercase">{prize.name}</div>
+                    <div className="bg-black/40 backdrop-blur-xl border border-red-500/50 shadow-[0_0_40px_rgba(255,40,40,0.4)] rounded-[30px] px-20 py-10 text-center animate-fade-up">
+                        <div className="text-xl font-bold text-red-100/80 uppercase tracking-[0.3em] mb-2">Đang quay giải thưởng</div>
+                        <FitText className="text-5xl text-yellow-300 font-extrabold uppercase neon-text-gold">{prize.name}</FitText>
                     </div>
                 </div>
             )}
 
             {overlayState === 'winners' && (
                 <div className="fixed inset-0 bg-cover bg-center backdrop-blur-xl z-[9999] flex flex-col items-center p-10 animate-fade-in" style={{ backgroundImage: bgImage }}>
-                    <h1 className="text-4xl md:text-5xl font-bold text-yellow-500 uppercase mb-16 drop-shadow-sm flex items-center gap-4 bg-white/90 px-8 py-4 rounded-full shadow-lg">
+                    <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
+                    <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 neon-text-gold uppercase mb-16 flex items-center gap-4 bg-black/40 border border-red-500/50 px-8 py-4 rounded-full shadow-[0_0_30px_rgba(255,40,40,0.4)]">
                         <i className="fa-solid fa-list"></i> XIN CHÚC MỪNG
                     </h1>
                     <div className="w-full max-w-5xl flex-grow overflow-y-auto pr-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-20">
                             {winners.length === 0 ? (
-                                <div className="text-center text-gray-500 italic py-10 w-full col-span-2 bg-white/80 rounded-xl">Chưa có ai trúng thưởng</div>
+                                <div className="text-center text-red-100/70 italic py-10 w-full col-span-2 bg-black/30 border border-red-500/30 rounded-xl">Chưa có ai trúng thưởng</div>
                             ) : (
                                 winners.map((w, index) => (
-                                    <div key={index} className="flex items-center gap-4 bg-white/90 p-4 rounded-xl shadow-sm border border-gray-100 animate-fade-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                                        <div className="text-xl font-bold text-gray-400">#{winners.length - index}</div>
-                                        <div className="w-12 h-12 bg-white p-1 rounded-lg border border-gray-200">
+                                    <div key={index} className="flex items-center gap-4 bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-red-500/30 shadow-[0_0_15px_rgba(255,40,40,0.15)] animate-fade-up" style={{ animationDelay: `${index * 0.1}s` }}>
+                                        <div className="text-xl font-bold text-red-300/60">#{winners.length - index}</div>
+                                        <div className="w-12 h-12 bg-white/95 p-1 rounded-lg border border-red-400/40">
                                             <img src={w.prizeImage} className="w-full h-full object-contain" alt="Prize" />
                                         </div>
                                         <div className="flex-grow">
-                                            <div className="text-xs font-bold text-yellow-600 uppercase">{w.prizeName}</div>
-                                            <div className="text-lg font-bold text-gray-800">{w.name || "Ẩn danh"}</div>
-                                            <div className="text-sm text-blue-600 font-mono">{w.id}</div>
+                                            <div className="text-xs font-bold text-yellow-400 uppercase">{w.prizeName}</div>
+                                            <div className="text-lg font-bold text-white">{w.name || "Ẩn danh"}</div>
+                                            <div className="text-sm text-red-300 font-mono">{w.id}</div>
                                         </div>
                                     </div>
                                 ))
@@ -250,22 +337,23 @@ const ProjectorView = () => {
 
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }}>
+                <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                 <div className={`relative z-10 p-8 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
                     <div className="flex flex-col items-center justify-center gap-4">
                         <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <div className="text-3xl md:text-5xl font-bold text-white uppercase display-text mb-2 animate-fade-down">
+                        <FitText className="text-3xl md:text-5xl font-extrabold text-white uppercase display-text mb-2 animate-fade-down">
                             {prize.name}
-                        </div>
-                        
-                        <div className="text-5xl md:text-7xl font-bold text-yellow-500 uppercase break-words display-text leading-tight my-2">
+                        </FitText>
+
+                        <FitText className="text-5xl md:text-7xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-2">
                             {modalData.name}
-                        </div>
-                        
-                        <div className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
+                        </FitText>
+
+                        <FitText className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
                             {modalData.id}
-                        </div>
+                        </FitText>
                     </div>
                 </div>
             </div>
@@ -281,11 +369,11 @@ const ControlView = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
+    const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
-    
+
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
@@ -293,7 +381,7 @@ const ControlView = () => {
     const [showTimer, setShowTimer] = useState(false);
     const [timerWidth, setTimerWidth] = useState('100%');
     const [timerTransition, setTimerTransition] = useState('none');
-    
+
     const [showModal, setShowModal] = useState(false);
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -421,10 +509,10 @@ const ControlView = () => {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
-        
+
         const winnerIndex = Math.floor(Math.random() * parsedCandidates.length);
         const winner = parsedCandidates[winnerIndex];
-        
+
         const winRecord = { ...winner, prizeName: prize.name, prizeImage: prize.image, timestamp: new Date() };
         const newWinners = [winRecord, ...winners];
         setWinners(newWinners);
@@ -439,7 +527,7 @@ const ControlView = () => {
         setDisplayName(name);
         setShowName(true);
         playWinSound();
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
         setTimeout(() => sendCommand('SHOW_NAME', { name }), 500);
 
         setTimeout(() => {
@@ -582,7 +670,7 @@ const ControlView = () => {
 
     const exportSystemLogs = () => {
         if (logs.length === 0) { alert("Chưa có nhật ký hệ thống!"); return; }
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
         csvContent += "Thời Gian,Hành Động,Chi Tiết\n";
         logs.forEach(log => {
             const detail = log.detail.replace(/"/g, '""');
@@ -600,11 +688,11 @@ const ControlView = () => {
 
     const exportWinners = () => {
         if (winners.length === 0) { alert("Chưa có dữ liệu!"); return; }
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
         csvContent += "STT,Tên Giải,Tên Người Trúng,MSSV,Thời Gian\n";
         [...winners].reverse().forEach((w, index) => {
             const date = w.timestamp.toLocaleString('vi-VN');
-            const row = `${index + 1},"${(w.prizeName||"").replace(/"/g,'""')}","${(w.name||"").replace(/"/g,'""')}","${(w.id||"").replace(/"/g,'""')}","${date}"`;
+            const row = `${index + 1},"${(w.prizeName || "").replace(/"/g, '""')}","${(w.name || "").replace(/"/g, '""')}","${(w.id || "").replace(/"/g, '""')}","${date}"`;
             csvContent += row + "\n";
         });
         const encodedUri = encodeURI(csvContent);
@@ -630,7 +718,8 @@ const ControlView = () => {
     };
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
+        <div className="relative flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
+            <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {/* Top Nav */}
             <div id="topNav" className="fixed bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300">
                 <div className="glass-panel rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/50">
@@ -714,7 +803,7 @@ const ControlView = () => {
                                     </div>
                                     2. Cấu hình Giải thưởng
                                 </label>
-                                
+
                                 <div className="space-y-5">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Tên giải thưởng</label>
@@ -723,21 +812,6 @@ const ControlView = () => {
                                             setPrize(newPrize);
                                             updateStateField('prize', newPrize);
                                         }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-800 font-bold transition-all shadow-sm" placeholder="VD: Giải Nhất..." />
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Hình ảnh quà tặng</label>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition-colors">
-                                                <img src={prize.image} className="w-full h-full object-contain p-2" alt="Prize Preview" />
-                                            </div>
-                                            <div className="flex-grow flex flex-col gap-2">
-                                                <input type="file" id="prizeImgInput" accept="image/*" className="hidden" onChange={handlePrizeImageUpload} />
-                                                <label htmlFor="prizeImgInput" className="cursor-pointer w-full text-center px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-100 hover:border-blue-300 text-sm font-bold transition-all shadow-sm">
-                                                    <i className="fa-solid fa-cloud-arrow-up mr-2"></i> Tải ảnh lên
-                                                </label>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div className="pt-5 border-t border-gray-100 grid grid-cols-2 gap-3">
@@ -765,16 +839,16 @@ const ControlView = () => {
                                     </div>
                                 </div>
                             </label>
-                            <textarea 
+                            <textarea
                                 value={inputText}
                                 onChange={e => setInputText(e.target.value)}
-                                className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50" 
-                                placeholder="2011001, Nguyễn Văn A..." 
+                                className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50"
+                                placeholder="2011001, Nguyễn Văn A..."
                                 spellCheck="false"
                             />
                             <div className="flex gap-2 mt-2">
-                                <button onClick={() => { if(confirm('Xóa hết danh sách?')) { setInputText(''); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
-                                <button onClick={() => { setInputText("Chưa có dữ liệu"); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button> 
+                                <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                <button onClick={() => { setInputText("Chưa có dữ liệu"); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
                         </div>
                     </div>
@@ -787,15 +861,11 @@ const ControlView = () => {
 
                 {/* Stage View */}
                 <div className={activeTab === 'stage' ? 'flex items-center justify-center w-full h-full' : 'hidden'}>
-                    <Stage 
-                        prize={prize}
+                    <Stage
                         displayId={displayId}
                         displayName={displayName}
                         showName={showName}
                         isRolling={isRolling}
-                        showTimer={showTimer}
-                        timerWidth={timerWidth}
-                        timerTransition={timerTransition}
                         onSpin={startAutoSpin}
                         isSpinning={isSpinning}
                         onReset={handleReset}
@@ -861,25 +931,26 @@ const ControlView = () => {
 
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }} onClick={handleCloseModal}>
+                <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                 <div className={`relative z-10 p-8 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
                     <div className="flex flex-col items-center justify-center gap-4">
                         <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <div className="text-3xl md:text-5xl font-bold text-white uppercase display-text mb-2 animate-fade-down">
+                        <FitText className="text-3xl md:text-5xl font-extrabold text-white uppercase display-text mb-2 animate-fade-down">
                             {prize.name}
-                        </div>
-                        
-                        <div className="text-5xl md:text-7xl font-bold text-yellow-500 uppercase break-words display-text leading-tight my-2">
+                        </FitText>
+
+                        <FitText className="text-5xl md:text-7xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-2">
                             {modalData.name}
-                        </div>
-                        
-                        <div className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
+                        </FitText>
+
+                        <FitText className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
                             {modalData.id}
-                        </div>
-                        
+                        </FitText>
+
                         <div className="flex justify-center gap-4 mt-8">
-                            <button onClick={handleCloseModal} className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-full text-lg transition-colors flex items-center gap-2 backdrop-blur-md border border-white/30">
+                            <button onClick={handleCloseModal} className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full text-lg transition-colors flex items-center gap-2 backdrop-blur-md border border-red-500/40">
                                 <i className="fa-solid fa-rotate-left"></i> Quay về
                             </button>
                         </div>

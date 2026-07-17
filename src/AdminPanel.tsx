@@ -22,7 +22,7 @@ const AdminPanel = () => {
     const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
-    const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
+    const [inputText, setInputText] = useState("090****5678, Nguyễn Hoàng Long\n091****6789, Trịnh Thu Hà\n092****7890, Lý Quốc Bảo\n093****8901, Dương Minh Đức\n094****9012, Nguyễn Thảo Vy\n095****0123, Trần Gia Bảo\n096****1234, Lê Phương Anh\n097****2345, Phạm Đức Anh\n098****3456, Võ Khánh Linh\n099****4567, Huỳnh Nhật Minh\n090****6789, Đinh Quang Huy\n091****7890, Cao Bảo Ngọc\n092****8901, Mai Anh Tuấn\n093****9012, Tạ Ngọc Mai\n094****0123, Ngô Minh Khang\n095****1234, Phan Gia Linh\n096****2345, Đoàn Quốc Việt\n097****3456, Trương Khả Hân\n098****4567, Hồ Thanh Phong\n099****5678, Vũ Bảo Trâm");
     const [activeSection, setActiveSection] = useState('winners');
     const [activeScene, setActiveScene] = useState<'spin' | 'prize' | 'winners'>('spin');
     const [spinDuration, setSpinDuration] = useState(10);
@@ -161,13 +161,7 @@ const AdminPanel = () => {
         addLog("RESET", "Reset màn hình.");
     };
 
-    const showPrizeScene = () => {
-        if (activeScene === 'prize') { backToSpin(); return; }
-        updateStateField('prize', prize);
-        sendCommand('SHOW_PRIZE_SCENE', prize);
-        setActiveScene('prize');
-        addLog("SHOW_PRIZE", `Giới thiệu: ${prize.name}`);
-    };
+
 
     const showWinnersList = () => {
         if (activeScene === 'winners') { backToSpin(); return; }
@@ -196,18 +190,7 @@ const AdminPanel = () => {
         }
     };
 
-    const handlePrizeImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const newPrize = { ...prize, image: ev.target?.result as string };
-                setPrize(newPrize);
-                updateStateField('prize', newPrize);
-                addLog("PRIZE_IMG", `Đổi ảnh: ${newPrize.name}`);
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    };
+
 
     const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -429,10 +412,7 @@ const AdminPanel = () => {
                                 <span>Reset</span>
                             </button>
 
-                            <button onClick={showPrizeScene} className={`action-btn prize-btn ${activeScene === 'prize' ? 'active' : ''}`}>
-                                <i className={`fa-solid ${activeScene === 'prize' ? 'fa-rotate-left' : 'fa-gift'}`}></i>
-                                <span>{activeScene === 'prize' ? 'Ẩn giải' : 'Giới thiệu giải'}</span>
-                            </button>
+
 
                             <button onClick={showWinnersList} className={`action-btn winners-btn ${activeScene === 'winners' ? 'active' : ''}`}>
                                 <i className={`fa-solid ${activeScene === 'winners' ? 'fa-rotate-left' : 'fa-list'}`}></i>
@@ -456,38 +436,6 @@ const AdminPanel = () => {
                         </div>
 
                         <div className="settings-grid">
-                            {/* Prize Config */}
-                            <div className="settings-card">
-                                <h3><i className="fa-solid fa-gift"></i> Giải thưởng</h3>
-                                <div className="field-group">
-                                    <label>Tên giải thưởng</label>
-                                    <input
-                                        type="text"
-                                        value={prize.name}
-                                        onChange={e => {
-                                            const p = { ...prize, name: e.target.value || "Giải Thưởng" };
-                                            setPrize(p);
-                                            updateStateField('prize', p);
-                                        }}
-                                        className="admin-input"
-                                        placeholder="VD: Giải Nhất..."
-                                    />
-                                </div>
-                                <div className="field-group">
-                                    <label>Hình ảnh giải</label>
-                                    <div className="prize-upload-row">
-                                        <div className="prize-preview">
-                                            <img src={prize.image} alt="Prize" />
-                                        </div>
-                                        <div className="upload-area">
-                                            <input type="file" id="adminPrizeImg" accept="image/*" className="hidden" onChange={handlePrizeImageUpload} />
-                                            <label htmlFor="adminPrizeImg" className="upload-btn">
-                                                <i className="fa-solid fa-cloud-arrow-up"></i> Tải ảnh lên
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
                             {/* Background */}
                             <div className="settings-card">

@@ -71,11 +71,14 @@ export const onStateChange = (callback: (data: any) => void) => {
 };
 
 export const onCommandChange = (callback: (data: any) => void) => {
-    let lastTs = 0;
+    let isFirst = true;
     onValue(commandRef, (snapshot) => {
         const data = snapshot.val();
-        if (data && data.ts > lastTs) {
-            lastTs = data.ts;
+        if (isFirst) {
+            isFirst = false;
+            return;
+        }
+        if (data) {
             callback(data);
         }
     });

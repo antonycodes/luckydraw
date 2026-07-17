@@ -8,6 +8,8 @@ import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateSta
 const DEFAULT_BG = 'radial-gradient(ellipse at 50% 35%, #2a0202 0%, #120000 55%, #000000 100%)';
 const CONFETTI_COLORS = ['#ff3b3b', '#ffd166', '#ffffff', '#ff8080'];
 
+const SAMPLE_DATA_STR = "090****5678, Nguyễn Hoàng Long\n091****6789, Trịnh Thu Hà\n092****7890, Lý Quốc Bảo\n093****8901, Dương Minh Đức\n094****9012, Nguyễn Thảo Vy\n095****0123, Trần Gia Bảo\n096****1234, Lê Phương Anh\n097****2345, Phạm Đức Anh\n098****3456, Võ Khánh Linh\n099****4567, Huỳnh Nhật Minh\n090****6789, Đinh Quang Huy\n091****7890, Cao Bảo Ngọc\n092****8901, Mai Anh Tuấn\n093****9012, Tạ Ngọc Mai\n094****0123, Ngô Minh Khang\n095****1234, Phan Gia Linh\n096****2345, Đoàn Quốc Việt\n097****3456, Trương Khả Hân\n098****4567, Hồ Thanh Phong\n099****5678, Vũ Bảo Trâm";
+
 // --- Utils ---
 const triggerModalConfetti = () => {
     const duration = 3000;
@@ -27,6 +29,28 @@ const parseCandidates = (text: string) => {
         if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
         return { id: line.trim(), name: "" };
     });
+};
+
+const getSeamlessList = (candidates: any[]) => {
+    if (candidates.length === 0) return [];
+    const ids = candidates.map(c => c.id || c);
+    const base: string[] = [];
+    for (let i = 0; i < 6; i++) {
+        base.push(ids[Math.floor(Math.random() * ids.length)]);
+    }
+    return [...base, ...base];
+};
+
+const getAdaptiveFontSize = (text: string, baseVw = 10, maxVw = 12) => {
+    if (!text) return `${baseVw}vw`;
+    const N = text.length;
+    if (N <= 6) {
+        return `clamp(3rem, ${baseVw}vw, ${maxVw}rem)`;
+    }
+    // Scale down linearly for N > 6
+    const calculatedVw = (6 / N) * baseVw;
+    const calculatedMaxRem = (6 / N) * maxVw;
+    return `clamp(1.5rem, ${calculatedVw}vw, ${calculatedMaxRem}rem)`;
 };
 
 // --- Components ---
@@ -52,8 +76,8 @@ const FitText = ({ children, className = '' }: { children: React.ReactNode; clas
         return () => ro.disconnect();
     }, [children]);
     return (
-        <div ref={boxRef} className={`w-full text-center ${className}`}>
-            <span ref={textRef} className="inline-block whitespace-nowrap align-top">
+        <div ref={boxRef} className={`w-full text-center overflow-visible ${className}`}>
+            <span ref={textRef} className="inline-block whitespace-nowrap align-top overflow-visible">
                 {children}
             </span>
         </div>
@@ -131,19 +155,73 @@ const LuckyWheel = ({ isRolling }: { isRolling: boolean }) => {
     );
 };
 
+const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: string, nextId: string, isRolling: boolean }) => {
+    const isMainMessage = id === "ARE YOU READY ?" || id.includes("READY") || !id;
+
+    // Base clamp dimensions: base values are N=6 length equivalents in vw and max-rem
+    const middleStyle = {
+        fontSize: getAdaptiveFontSize(id, 9.5, 12.5)
+    };
+    const subStyleTop = {
+        fontSize: getAdaptiveFontSize(prevId, 6.5, 8.5)
+    };
+    const subStyleBottom = {
+        fontSize: getAdaptiveFontSize(nextId, 6.5, 8.5)
+    };
+
+    return (
+        <div className="relative h-[22rem] md:h-[28rem] flex flex-col items-center justify-center overflow-hidden w-full select-none">
+            {/* The slot machine cylinder container */}
+            <div className="flex flex-col items-center justify-center transition-all w-full overflow-visible">
+                {/* Top Number */}
+                <div className="h-[6rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
+                    <div
+                        style={subStyleTop}
+                        className={`font-extrabold text-white/50 font-sans tracking-tight overflow-visible tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}
+                    >
+                        {isMainMessage ? "" : prevId}
+                    </div>
+                </div>
+
+                {/* Middle (Active) Number */}
+                <div className="h-[10rem] md:h-[14rem] flex items-center justify-center opacity-100 scale-100 transition-all duration-300 relative z-10 w-full select-none overflow-visible">
+                    <div
+                        style={middleStyle}
+                        className={`font-extrabold text-white font-sans tracking-tight display-text overflow-visible transition-all duration-300 whitespace-nowrap ${isRolling ? 'blur-[0.5px]' : ''} ${isMainMessage ? '' : 'tabular-nums'}`}
+                    >
+                        {id}
+                    </div>
+                </div>
+
+                {/* Bottom Number */}
+                <div className="h-[6rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
+                    <div
+                        style={subStyleBottom}
+                        className={`font-extrabold text-white/50 font-sans tracking-tight overflow-visible tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}
+                    >
+                        {isMainMessage ? "" : nextId}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Stage = ({
-    displayId, displayName, showName, isRolling,
+    displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
     showControls = true, onSpin, isSpinning, onReset, showModal = false
 }: any) => {
     return (
-        <div className={`w-full ${showControls ? 'glass-panel-stage rounded-3xl p-6' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] pb-28`}>
+        <div className={`w-full ${showControls ? 'glass-panel-stage rounded-3xl p-6 pb-35' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] ${showControls ? 'pb-35' : ''}`}>
             <div className={`w-full flex-grow flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 px-6 md:px-16 mt-4 transition-all duration-500 ${showModal ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-                <div className="relative flex-1 flex flex-col items-center justify-center min-w-0 w-full">
-                    <div className="absolute w-[80%] h-[80%] bg-red-600 rounded-full filter blur-3xl opacity-20 -z-10"></div>
-                    <FitText className={`text-[clamp(3rem,10vw,12rem)] font-extrabold text-white leading-[1.05] display-text transition-all duration-100 font-sans tracking-tight ${isRolling ? 'rolling' : ''}`}>
-                        {displayId}
-                    </FitText>
-                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold mt-4 min-h-12 transition-opacity duration-500 ${showName ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="relative flex-1 flex flex-col items-center justify-center min-w-0 w-full md:translate-y-5">
+                    <div className="absolute w-[80%] h-[80%] bg-red-000 rounded-full filter blur-3xl opacity-30 -z-10"></div>
+                    {/* Spacer to center the main text vertically by balancing the displayName below */}
+                    <div className="text-2xl md:text-4xl mt-4 min-h-12 invisible select-none pointer-events-none" aria-hidden="true">&nbsp;</div>
+
+                    <NumberReel prevId={displayPrevId} id={displayId} nextId={displayNextId} isRolling={isRolling} />
+
+                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
                         {displayName}
                     </FitText>
                 </div>
@@ -180,8 +258,10 @@ const Stage = ({
 
 const ProjectorView = () => {
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
-    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1774513533/TAI_NGHE_lyjzkf.png" });
+    const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
+    const [displayPrevId, setDisplayPrevId] = useState("");
+    const [displayNextId, setDisplayNextId] = useState("");
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -234,12 +314,18 @@ const ProjectorView = () => {
                             setTimerTransition(`width ${duration}ms linear`);
                         });
                     });
+
                     // Run local spin animation
                     if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
                     if (candidates.length > 0) {
                         spinIntervalRef.current = setInterval(() => {
-                            const rc = candidates[Math.floor(Math.random() * candidates.length)];
+                            const index = Math.floor(Math.random() * candidates.length);
+                            const rc = candidates[index];
+                            const prevRc = candidates[(index - 1 + candidates.length) % candidates.length];
+                            const nextRc = candidates[(index + 1) % candidates.length];
                             setDisplayId(rc.id || rc);
+                            setDisplayPrevId(prevRc.id || prevRc);
+                            setDisplayNextId(nextRc.id || nextRc);
                         }, 50);
                     }
                     break;
@@ -248,6 +334,8 @@ const ProjectorView = () => {
                     if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setIsRolling(false);
                     setDisplayId(payload?.id || '');
+                    setDisplayPrevId(payload?.prevId || '');
+                    setDisplayNextId(payload?.nextId || '');
                     setShowTimer(false);
                     break;
                 case 'SHOW_NAME':
@@ -268,6 +356,8 @@ const ProjectorView = () => {
                     if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setOverlayState('none');
                     setDisplayId("ARE YOU READY ?");
+                    setDisplayPrevId("");
+                    setDisplayNextId("");
                     setShowName(false);
                     setShowModal(false);
                     break;
@@ -283,6 +373,8 @@ const ProjectorView = () => {
             {overlayState === 'none' && (
                 <Stage
                     displayId={displayId}
+                    displayPrevId={displayPrevId}
+                    displayNextId={displayNextId}
                     displayName={displayName}
                     showName={showName}
                     isRolling={isRolling}
@@ -338,20 +430,20 @@ const ProjectorView = () => {
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
-                <div className={`relative z-10 p-8 max-w-4xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
-                    <div className="flex flex-col items-center justify-center gap-4">
-                        <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
+                <div className={`relative z-10 p-8 max-w-6xl w-[90%] text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
+                    <div className="flex flex-col items-center justify-center gap-6">
+                        <div className="text-3xl md:text-5xl font-bold text-white uppercase tracking-[0.2em] display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <FitText className="text-3xl md:text-5xl font-extrabold text-white uppercase display-text mb-2 animate-fade-down">
+                        <FitText className="text-4xl md:text-6xl font-extrabold text-white uppercase display-text mb-4 animate-fade-down">
                             {prize.name}
                         </FitText>
 
-                        <FitText className="text-5xl md:text-7xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-2">
+                        <FitText className="text-6xl md:text-8xl lg:text-[8rem] font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-4">
                             {modalData.name}
                         </FitText>
 
-                        <FitText className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
+                        <FitText className="text-5xl md:text-6xl lg:text-7xl font-bold text-white font-sans tracking-widest display-text">
                             {modalData.id}
                         </FitText>
                     </div>
@@ -364,7 +456,7 @@ const ProjectorView = () => {
 
 const ControlView = () => {
     const [activeTab, setActiveTab] = useState('settings');
-    const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
+    const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
@@ -372,9 +464,11 @@ const ControlView = () => {
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
-    const [inputText, setInputText] = useState("S03915,VŨ ĐỨC LÂM\nS12028,VƯU TẤN LỘC\nS12037,TRẦN LƯU THANH NHÂN\nS12170,THÁI MINH HIỂN\nS02791,BÙI SƠN TRÀ\nS12027,HÀ ANH TÀI\nS12068,NGUYỄN TIẾN ĐẠT\nS13073,NGUYỄN NGỌC TIẾN\nS00668,NGUYỄN MINH THÀNH\nS12196,NGUYỄN TRẦN LONG NHÂN\nS12203,NGUYỄN VĂN HOÀNG\nS12434,NGUYỄN HỮU LỘC\nS12504,NGUYỄN TIẾN THÀNH");
+    const [inputText, setInputText] = useState(SAMPLE_DATA_STR);
 
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
+    const [displayPrevId, setDisplayPrevId] = useState("");
+    const [displayNextId, setDisplayNextId] = useState("");
     const [displayName, setDisplayName] = useState("");
     const [showName, setShowName] = useState(false);
     const [isRolling, setIsRolling] = useState(false);
@@ -388,6 +482,7 @@ const ControlView = () => {
 
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
+    const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
         // Listen to winners from Firebase to keep in sync
@@ -487,16 +582,25 @@ const ControlView = () => {
         // Send spin command to Firebase with candidates for local animation
         sendCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates });
 
+        if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
-        const interval = setInterval(() => {
-            const randomCandidate = parsedCandidates[Math.floor(Math.random() * parsedCandidates.length)];
+        spinIntervalRef.current = setInterval(() => {
+            const index = Math.floor(Math.random() * parsedCandidates.length);
+            const randomCandidate = parsedCandidates[index];
+            const prevCandidate = parsedCandidates[(index - 1 + parsedCandidates.length) % parsedCandidates.length];
+            const nextCandidate = parsedCandidates[(index + 1) % parsedCandidates.length];
             setDisplayId(randomCandidate.id);
+            setDisplayPrevId(prevCandidate.id);
+            setDisplayNextId(nextCandidate.id);
             if (counter % 4 === 0) playTickSound();
             counter++;
         }, 50);
 
         setTimeout(() => {
-            clearInterval(interval);
+            if (spinIntervalRef.current) {
+                clearInterval(spinIntervalRef.current);
+                spinIntervalRef.current = null;
+            }
             finishSpin(parsedCandidates);
         }, 10000);
     };
@@ -504,6 +608,11 @@ const ControlView = () => {
     const finishSpin = (parsedCandidates: any[]) => {
         setIsRolling(false);
         setShowTimer(false);
+
+        if (spinIntervalRef.current) {
+            clearInterval(spinIntervalRef.current);
+            spinIntervalRef.current = null;
+        }
 
         if (customSound && audioRef.current) {
             audioRef.current.pause();
@@ -520,8 +629,12 @@ const ControlView = () => {
 
         addLog("WINNER_FOUND", `Người trúng: ${winner.id} - ${winner.name} (Giải: ${prize.name})`);
 
+        const prevId = parsedCandidates[(winnerIndex - 1 + parsedCandidates.length) % parsedCandidates.length].id;
+        const nextId = parsedCandidates[(winnerIndex + 1) % parsedCandidates.length].id;
         setDisplayId(winner.id);
-        sendCommand('SPIN_STOP', { id: winner.id });
+        setDisplayPrevId(prevId);
+        setDisplayNextId(nextId);
+        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId });
 
         const name = winner.name || "(Không có tên)";
         setDisplayName(name);
@@ -551,6 +664,8 @@ const ControlView = () => {
 
     const handleReset = () => {
         setDisplayId("ARE YOU READY ?");
+        setDisplayPrevId("");
+        setDisplayNextId("");
         setShowName(false);
         sendCommand('RESET');
         addLog("RESET", "Reset màn hình hiển thị.");
@@ -561,6 +676,8 @@ const ControlView = () => {
         sendCommand('CLOSE_MODAL');
         setTimeout(() => {
             setDisplayId("ARE YOU READY ?");
+            setDisplayPrevId("");
+            setDisplayNextId("");
             setShowName(false);
             sendCommand('RESET');
         }, 300);
@@ -605,19 +722,6 @@ const ControlView = () => {
                 const url = `url(${ev.target?.result})`;
                 setBgImage(url);
                 updateStateField('bgImage', url);
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    };
-
-    const handlePrizeImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const newPrize = { ...prize, image: ev.target?.result as string };
-                setPrize(newPrize);
-                updateStateField('prize', newPrize);
-                addLog("PRIZE_UPDATE", `Đổi ảnh giải thưởng: ${newPrize.name}`);
             };
             reader.readAsDataURL(e.target.files[0]);
         }
@@ -793,38 +897,7 @@ const ControlView = () => {
                                     </div>
                                     <p className="text-[10px] text-gray-400 mt-1 italic">*Lưu ý: Màn hình chiếu cần bấm nút "Bật âm thanh" xuất hiện lần đầu.</p>
                                 </div>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-md relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-100 to-orange-50 rounded-bl-full -z-10 opacity-50"></div>
-                                <label className="block text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
-                                        <i className="fa-solid fa-gift"></i>
-                                    </div>
-                                    2. Cấu hình Giải thưởng
-                                </label>
-
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Tên giải thưởng</label>
-                                        <input type="text" value={prize.name} onChange={e => {
-                                            const newPrize = { ...prize, name: e.target.value || "Giải Thưởng" };
-                                            setPrize(newPrize);
-                                            updateStateField('prize', newPrize);
-                                        }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-800 font-bold transition-all shadow-sm" placeholder="VD: Giải Nhất..." />
-                                    </div>
-
-                                    <div className="pt-5 border-t border-gray-100 grid grid-cols-2 gap-3">
-                                        <button onClick={() => { addLog("SHOW_PRIZE", "Hiển thị giới thiệu giải thưởng"); sendCommand('SHOW_PRIZE_SCENE', prize); }} className="py-2.5 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white rounded-xl font-bold shadow-md transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
-                                            <i className="fa-solid fa-desktop"></i> Chiếu Giới Thiệu
-                                        </button>
-                                        <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); sendCommand('BACK_TO_SPIN'); }} className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold shadow-sm transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm border border-gray-200">
-                                            <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                            </div>                        </div>
 
                         <div className="flex flex-col h-full">
                             <label className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
@@ -848,7 +921,7 @@ const ControlView = () => {
                             />
                             <div className="flex gap-2 mt-2">
                                 <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
-                                <button onClick={() => { setInputText("Chưa có dữ liệu"); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                <button onClick={() => { setInputText(SAMPLE_DATA_STR); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
                         </div>
                     </div>
@@ -863,6 +936,8 @@ const ControlView = () => {
                 <div className={activeTab === 'stage' ? 'flex items-center justify-center w-full h-full' : 'hidden'}>
                     <Stage
                         displayId={displayId}
+                        displayPrevId={displayPrevId}
+                        displayNextId={displayNextId}
                         displayName={displayName}
                         showName={showName}
                         isRolling={isRolling}
@@ -938,7 +1013,7 @@ const ControlView = () => {
                             Xin chúc mừng
                         </div>
                         <FitText className="text-3xl md:text-5xl font-extrabold text-white uppercase display-text mb-2 animate-fade-down">
-                            {prize.name}
+                            THÀNH VIÊN S-STUDENT
                         </FitText>
 
                         <FitText className="text-5xl md:text-7xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-2">

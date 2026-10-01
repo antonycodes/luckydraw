@@ -9,9 +9,9 @@ import { hasOfflineState, loadOfflineState, sendOfflineCommand, subscribeOffline
 const DEFAULT_BG = 'radial-gradient(ellipse at 50% 35%, #2a0202 0%, #120000 55%, #000000 100%)';
 const CONFETTI_COLORS = ['#ff3b3b', '#ffd166', '#ffffff', '#ff8080'];
 
-const SAMPLE_DATA_STR = "090****5678, Nguyễn Hoàng Long\n091****6789, Trịnh Thu Hà\n092****7890, Lý Quốc Bảo\n093****8901, Dương Minh Đức\n094****9012, Nguyễn Thảo Vy\n095****0123, Trần Gia Bảo\n096****1234, Lê Phương Anh\n097****2345, Phạm Đức Anh\n098****3456, Võ Khánh Linh\n099****4567, Huỳnh Nhật Minh\n090****6789, Đinh Quang Huy\n091****7890, Cao Bảo Ngọc\n092****8901, Mai Anh Tuấn\n093****9012, Tạ Ngọc Mai\n094****0123, Ngô Minh Khang\n095****1234, Phan Gia Linh\n096****2345, Đoàn Quốc Việt\n097****3456, Trương Khả Hân\n098****4567, Hồ Thanh Phong\n099****5678, Vũ Bảo Trâm";
+const SAMPLE_DATA_STR = "20240001, Nguyễn Hoàng Long\n20240002, Trịnh Thu Hà\n20240003, Lý Quốc Bảo\n20240004, Dương Minh Đức\n20240005, Nguyễn Thảo Vy\n20240006, Trần Gia Bảo\n20240007, Lê Phương Anh\n20240008, Phạm Đức Anh\n20240009, Võ Khánh Linh\n20240010, Huỳnh Nhật Minh\n20240011, Đinh Quang Huy\n20240012, Cao Bảo Ngọc\n20240013, Mai Anh Tuấn\n20240014, Tạ Ngọc Mai\n20240015, Ngô Minh Khang\n20240016, Phan Gia Linh\n20240017, Đoàn Quốc Việt\n20240018, Trương Khả Hân\n20240019, Hồ Thanh Phong\n20240020, Vũ Bảo Trâm";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 30;
 
 // --- Utils ---
 const triggerModalConfetti = () => {
@@ -848,12 +848,17 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     };
 
     const softReset = () => {
-        if (confirm("Bạn có chắc muốn làm mới chương trình?\n- Lịch sử trúng thưởng sẽ bị xóa.\n- Danh sách tham gia trong ô nhập liệu sẽ được giữ nguyên.")) {
+        if (confirm("Bạn có chắc muốn làm mới chương trình?\n- Lịch sử trúng thưởng sẽ bị xóa.\n- Dữ liệu tham gia sẽ về trắng.\n- Màn hình sẽ quay lại ô Import data.")) {
             setWinners([]);
             if (offline) updateOfflineState({ winners: [] });
+            setInputText('');
+            setShowDataTable(false);
+            setCurrentPage(1);
+            if (offline) updateOfflineState({ candidates: '' });
+            else saveCandidates('');
             handleReset();
             setIsSpinning(false);
-            addLog("SOFT_RESET", "Người dùng đã làm mới (Reset) chương trình.");
+            addLog("SOFT_RESET", "Đã làm mới chương trình và đưa dữ liệu về trắng.");
             alert("Đã làm mới thành công!");
         }
     };
@@ -993,7 +998,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <i className="fa-solid fa-sliders text-blue-600"></i> Thiết lập sự kiện
                         </h2>
                         <div className="flex gap-2">
-                            <button onClick={softReset} className="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded border border-red-300 transition-colors flex items-center gap-1 font-bold" title="Làm mới lại từ đầu (Giữ dữ liệu)">
+                            <button onClick={softReset} className="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded border border-red-300 transition-colors flex items-center gap-1 font-bold" title="Làm mới và xóa dữ liệu tham gia">
                                 <i className="fa-solid fa-rotate"></i> Làm mới
                             </button>
                             <button onClick={exportSystemLogs} className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-300 transition-colors flex items-center gap-1" title="Tải file nhật ký hệ thống">
@@ -1062,7 +1067,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                             <i className="fa-solid fa-upload"></i> CSV
                                         </label>
                                     </div>
-                                    {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-blue-600 hover:underline font-semibold">Dán nhanh</button>}
+                                    {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-blue-600 hover:underline font-semibold">Import data</button>}
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 mb-3 sm:grid-cols-4">
@@ -1093,9 +1098,9 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             )}
                             {showDataTable ? (
                                 <>
-                            <div className="flex-grow min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">
-                                <table className="w-full text-sm">
-                                    <thead className="sticky top-0 z-10 bg-gray-100/95 text-left text-xs uppercase text-gray-500">
+                            <div className="h-[min(55vh,520px)] min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">
+                                <table className="w-full text-xs">
+                                    <thead className="sticky top-0 z-10 bg-gray-100/95 text-left text-[11px] uppercase text-gray-500">
                                         <tr>
                                             <th className="p-2 font-semibold">ID</th>
                                             <th className="p-2 font-semibold">Họ và tên</th>
@@ -1105,27 +1110,27 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     <tbody>
                                         {paginatedCandidates.map(({ candidate, index }) => (
                                             <tr key={index} className="border-t border-gray-200">
-                                                <td className="p-2 align-top">
+                                                <td className="p-1 align-top">
                                                     <input
                                                         aria-label={`ID dòng ${index + 1}`}
                                                         value={maskId ? maskIdentifier(candidate.id) : candidate.id}
                                                         readOnly={maskId}
                                                         onChange={e => updateCandidateField(index, 'id', e.target.value)}
-                                                        className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-2 font-mono text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 font-mono text-xs text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                                                         placeholder="MSSV / SĐT / STT"
                                                     />
                                                 </td>
-                                                <td className="p-2 align-top">
+                                                <td className="p-1 align-top">
                                                     <input
                                                         aria-label={`Họ và tên dòng ${index + 1}`}
                                                         value={candidate.name}
                                                         onChange={e => updateCandidateField(index, 'name', e.target.value)}
-                                                        className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-2 text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                                                         placeholder="Nguyễn Văn A"
                                                     />
                                                 </td>
-                                                <td className="p-2 text-center align-top">
-                                                    <button type="button" onClick={() => removeCandidateRow(index)} className="rounded-lg px-2 py-2 text-xs text-red-500 hover:bg-red-50" aria-label={`Xóa dòng ${index + 1}`}>
+                                                <td className="p-1 text-center align-top">
+                                                    <button type="button" onClick={() => removeCandidateRow(index)} className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50" aria-label={`Xóa dòng ${index + 1}`}>
                                                         Xóa
                                                     </button>
                                                 </td>
@@ -1135,7 +1140,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                 </table>
                             </div>
                             <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500">
-                                <span>Trang {currentPage}/{totalPages} · Tối đa {PAGE_SIZE} hàng</span>
+                                <span>Trang {currentPage} / {totalPages}</span>
                                 <div className="flex gap-1">
                                     <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded border border-gray-300 bg-white px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40">Trước</button>
                                     <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded border border-gray-300 bg-white px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40">Sau</button>
@@ -1150,14 +1155,18 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                 </>
                             ) : (
                                 <>
+                                    <div className="grid grid-cols-2 overflow-hidden rounded-t-xl border border-b-0 border-gray-300 bg-gray-100 text-[11px] font-semibold uppercase text-gray-500">
+                                        <div className="border-r border-gray-300 px-3 py-2">ID</div>
+                                        <div className="px-3 py-2">Họ và tên</div>
+                                    </div>
                                     <textarea
                                         value={inputText}
                                         onChange={e => { const value = e.target.value; setInputText(value); if (offline) updateOfflineState({ candidates: value }); }}
-                                        className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50"
-                                        placeholder="Dán 2 cột từ Excel: ID[TAB]Họ và tên"
+                                        className="h-[min(38vh,360px)] min-h-[180px] w-full flex-none rounded-b-xl border border-gray-300 bg-white/50 p-3 font-sans text-sm text-gray-700 shadow-inner outline-none resize-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Dán từ Excel theo từng dòng: ID[TAB]Họ và tên"
                                         spellCheck="false"
                                     />
-                                    <p className="mt-2 text-[11px] text-gray-500">Dán trực tiếp từ Excel, mỗi dòng gồm ID và Họ và tên.</p>
+                                    <p className="mt-2 text-[11px] text-gray-500">Giữ đúng 2 cột: ID và Họ và tên. Mỗi dòng cách nhau bằng phím Tab.</p>
                                     <div className="flex gap-2 mt-2">
                                         <button onClick={applyData} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Apply data</button>
                                         <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>

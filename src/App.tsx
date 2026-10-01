@@ -22,14 +22,26 @@ const triggerModalConfetti = () => {
     }());
 };
 
-const parseCandidates = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim() !== '');
-    return lines.map(line => {
-        let parts = line.split(',');
-        if (parts.length < 2) parts = line.split('-');
-        if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
-        return { id: line.trim(), name: "" };
-    });
+const parseCandidateLine = (line: string) => {
+    let parts = line.split(',');
+    if (parts.length < 2) parts = line.split('-');
+    if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
+    return { id: line.trim(), name: '' };
+};
+
+const parseCandidates = (text: string) => text.split(/\r?\n/).filter(line => line.trim() !== '').map(parseCandidateLine);
+
+const parseEditableCandidates = (text: string) => text.split(/\r?\n/).map(parseCandidateLine);
+
+const serializeCandidates = (candidates: any[]) => candidates
+    .map(candidate => candidate.name ? `${candidate.id}, ${candidate.name}` : candidate.id)
+    .join('\n');
+
+const maskIdentifier = (id: string) => {
+    if (!id || id.includes('*')) return id;
+    if (id.length <= 4) return '*'.repeat(id.length);
+    if (id.length <= 7) return `${id[0]}****${id.slice(-1)}`;
+    return `${id.slice(0, 3)}****${id.slice(-4)}`;
 };
 
 const getSeamlessList = (candidates: any[]) => {
@@ -210,8 +222,12 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
 
 const Stage = ({
     displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
-    showControls = true, onSpin, isSpinning, onReset, showModal = false
+    showControls = true, onSpin, isSpinning, onReset, showModal = false, maskId = false
 }: any) => {
+    const visibleId = maskId ? maskIdentifier(displayId) : displayId;
+    const visiblePrevId = maskId ? maskIdentifier(displayPrevId) : displayPrevId;
+    const visibleNextId = maskId ? maskIdentifier(displayNextId) : displayNextId;
+
     return (
         <div className={`w-full ${showControls ? 'glass-panel-stage rounded-3xl p-6 pb-35' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] ${showControls ? 'pb-35' : ''}`}>
             <div className={`w-full flex-grow flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 px-6 md:px-16 mt-4 transition-all duration-500 ${showModal ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
@@ -220,7 +236,7 @@ const Stage = ({
                     {/* Spacer to center the main text vertically by balancing the displayName below */}
                     <div className="text-2xl md:text-4xl mt-4 min-h-12 invisible select-none pointer-events-none" aria-hidden="true">&nbsp;</div>
 
-                    <NumberReel prevId={displayPrevId} id={displayId} nextId={displayNextId} isRolling={isRolling} />
+                    <NumberReel prevId={visiblePrevId} id={visibleId} nextId={visibleNextId} isRolling={isRolling} />
 
                     <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
                         {displayName}
@@ -273,6 +289,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [overlayState, setOverlayState] = useState('none');
     const [winners, setWinners] = useState<any[]>([]);
+    const [maskId, setMaskId] = useState(false);
     const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
@@ -291,6 +308,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                     setShowModal(false);
                     break;
                 case 'SPIN_START': {
+                    if (payload?.maskId !== undefined) setMaskId(payload.maskId);
                     setOverlayState('none');
                     setIsRolling(true);
                     setShowName(false);
@@ -360,12 +378,14 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
             setBgImage(state.bgImage);
             setPrize(state.prize);
             setWinners(state.winners);
+            setMaskId(state.maskId);
             return subscribeOffline((message) => {
                 if (message.type === 'state') {
                     const data = message.payload;
                     if (data.bgImage !== undefined) setBgImage(data.bgImage);
                     if (data.prize !== undefined) setPrize(data.prize);
                     if (data.winners !== undefined) setWinners(data.winners);
+                    if (data.maskId !== undefined) setMaskId(data.maskId);
                 }
                 if (message.type === 'command') handleCommand(message.payload);
             });
@@ -374,6 +394,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
         onStateChange((data) => {
             if (data.bgImage !== undefined) setBgImage(data.bgImage);
             if (data.prize !== undefined) setPrize(data.prize);
+            if (data.maskId !== undefined) setMaskId(data.maskId);
         });
         onWinnersChange((w) => setWinners(w));
         onCommandChange(handleCommand);
@@ -394,6 +415,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                     isRolling={isRolling}
                     showControls={false}
                     showModal={showModal}
+                    maskId={maskId}
                 />
             )}
 
@@ -431,7 +453,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                                         <div className="flex-grow">
                                             <div className="text-xs font-bold text-yellow-400 uppercase">{w.prizeName}</div>
                                             <div className="text-lg font-bold text-white">{w.name || "Ẩn danh"}</div>
-                                            <div className="text-sm text-red-300 font-mono">{w.id}</div>
+                                            <div className="text-sm text-red-300 font-mono">{maskId ? maskIdentifier(w.id) : w.id}</div>
                                         </div>
                                     </div>
                                 ))
@@ -458,7 +480,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                         </FitText>
 
                         <FitText className="text-5xl md:text-6xl lg:text-7xl font-bold text-white font-sans tracking-widest display-text">
-                            {modalData.id}
+                            {maskId ? maskIdentifier(modalData.id) : modalData.id}
                         </FitText>
                     </div>
                 </div>
@@ -474,6 +496,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
+    const [maskId, setMaskId] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [customSound, setCustomSound] = useState<string | null>(null);
@@ -506,6 +529,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             setBgImage(state.bgImage || DEFAULT_BG);
             setPrize(state.prize);
             setRemoveWinner(state.removeWinner);
+            setMaskId(state.maskId);
             return subscribeOffline((message) => {
                 if (message.type !== 'state') return;
                 const data = message.payload;
@@ -514,10 +538,14 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                 if (data.bgImage !== undefined) setBgImage(data.bgImage);
                 if (data.prize !== undefined) setPrize(data.prize);
                 if (data.removeWinner !== undefined) setRemoveWinner(data.removeWinner);
+                if (data.maskId !== undefined) setMaskId(data.maskId);
             });
         }
 
         onWinnersChange((w) => setWinners(w));
+        onStateChange((data) => {
+            if (data.maskId !== undefined) setMaskId(data.maskId);
+        });
         return () => detachListeners();
     }, [offline]);
 
@@ -615,7 +643,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         setShowModal(false);
 
         // Send the spin command through the active sync channel.
-        appCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates });
+        appCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates, maskId });
 
         if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
@@ -688,7 +716,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         if (removeWinner) {
             const newCandidates = [...parsedCandidates];
             newCandidates.splice(winnerIndex, 1);
-            const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
+            const newText = serializeCandidates(newCandidates);
             setInputText(newText);
             saveAppCandidates(newText);
             addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
@@ -748,10 +776,11 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         win.focus();
 
         if (offline) {
-            updateOfflineState({ bgImage, prize });
+            updateOfflineState({ bgImage, prize, maskId });
         } else {
             updateStateField('bgImage', bgImage);
             updateStateField('prize', prize);
+            updateStateField('maskId', maskId);
         }
     };
     const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -837,7 +866,8 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         csvContent += "STT,Tên Giải,Tên Người Trúng,MSSV,Thời Gian\n";
         [...winners].reverse().forEach((w, index) => {
             const date = new Date(w.timestamp).toLocaleString('vi-VN');
-            const row = `${index + 1},"${(w.prizeName || "").replace(/"/g, '""')}","${(w.name || "").replace(/"/g, '""')}","${(w.id || "").replace(/"/g, '""')}","${date}"`;
+            const winnerId = maskId ? maskIdentifier(w.id || '') : (w.id || '');
+            const row = `${index + 1},"${(w.prizeName || "").replace(/"/g, '""')}","${(w.name || "").replace(/"/g, '""')}","${winnerId.replace(/"/g, '""')}","${date}"`;
             csvContent += row + "\n";
         });
         const encodedUri = encodeURI(csvContent);
@@ -862,6 +892,27 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             };
             reader.readAsText(e.target.files[0]);
         }
+    };
+
+    const editableCandidates = parseEditableCandidates(inputText);
+    const updateCandidateField = (index: number, field: 'id' | 'name', value: string) => {
+        const rows = parseEditableCandidates(inputText);
+        rows[index] = { ...rows[index], [field]: value };
+        const next = serializeCandidates(rows);
+        setInputText(next);
+        if (offline) updateOfflineState({ candidates: next });
+    };
+    const addCandidateRow = () => {
+        const next = `${inputText}${inputText ? '\n' : ''}`;
+        setInputText(next);
+        if (offline) updateOfflineState({ candidates: next });
+    };
+    const removeCandidateRow = (index: number) => {
+        const rows = parseEditableCandidates(inputText);
+        rows.splice(index, 1);
+        const next = serializeCandidates(rows);
+        setInputText(next);
+        if (offline) updateOfflineState({ candidates: next });
     };
 
     return (
@@ -948,6 +999,19 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{parseCandidates(inputText).length}</span>
+                                    <label className="flex items-center gap-1 text-xs text-gray-600 font-medium cursor-pointer" title="Giữ 3 ký tự đầu và 4 ký tự cuối">
+                                        <input
+                                            type="checkbox"
+                                            checked={maskId}
+                                            onChange={e => {
+                                                const value = e.target.checked;
+                                                setMaskId(value);
+                                                if (offline) updateOfflineState({ maskId: value });
+                                                else updateStateField('maskId', value);
+                                            }}
+                                        />
+                                        Che ID
+                                    </label>
                                     <div className="relative group">
                                         <input type="file" id="csvInput" accept=".csv" className="hidden" onChange={handleCSVUpload} />
                                         <label htmlFor="csvInput" className="cursor-pointer text-xs text-green-600 hover:underline font-semibold">
@@ -956,15 +1020,51 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     </div>
                                 </div>
                             </label>
-                            <textarea
-                                value={inputText}
-                                onChange={e => { const value = e.target.value; setInputText(value); if (offline) updateOfflineState({ candidates: value }); }}
-                                className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50"
-                                placeholder="2011001, Nguyễn Văn A..."
-                                spellCheck="false"
-                            />
+                            <div className="flex-grow min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">
+                                <table className="w-full text-sm">
+                                    <thead className="sticky top-0 z-10 bg-gray-100/95 text-left text-xs uppercase text-gray-500">
+                                        <tr>
+                                            <th className="p-2 font-semibold">ID</th>
+                                            <th className="p-2 font-semibold">Họ và tên</th>
+                                            <th className="w-16 p-2 text-center font-semibold">Xóa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {editableCandidates.map((candidate, index) => (
+                                            <tr key={index} className="border-t border-gray-200">
+                                                <td className="p-2 align-top">
+                                                    <input
+                                                        aria-label={`ID dòng ${index + 1}`}
+                                                        value={maskId ? maskIdentifier(candidate.id) : candidate.id}
+                                                        readOnly={maskId}
+                                                        onChange={e => updateCandidateField(index, 'id', e.target.value)}
+                                                        className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-2 font-mono text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        placeholder="MSSV / SĐT / STT"
+                                                    />
+                                                </td>
+                                                <td className="p-2 align-top">
+                                                    <input
+                                                        aria-label={`Họ và tên dòng ${index + 1}`}
+                                                        value={candidate.name}
+                                                        onChange={e => updateCandidateField(index, 'name', e.target.value)}
+                                                        className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-2 text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        placeholder="Nguyễn Văn A"
+                                                    />
+                                                </td>
+                                                <td className="p-2 text-center align-top">
+                                                    <button type="button" onClick={() => removeCandidateRow(index)} className="rounded-lg px-2 py-2 text-xs text-red-500 hover:bg-red-50" aria-label={`Xóa dòng ${index + 1}`}>
+                                                        Xóa
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="mt-2 text-[11px] text-gray-500">Bật “Che ID” sẽ giữ 3 ký tự đầu và 4 ký tự cuối. Dữ liệu gốc vẫn dùng để quay số.</p>
                             <div className="flex gap-2 mt-2">
                                 <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); if (offline) updateOfflineState({ candidates: '' }); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                <button onClick={addCandidateRow} className="text-xs text-blue-600 hover:underline">Thêm dòng</button>
                                 <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
                         </div>
@@ -989,6 +1089,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                         isSpinning={isSpinning}
                         onReset={handleReset}
                         showModal={showModal}
+                        maskId={maskId}
                     />
                 </div>
 
@@ -1038,7 +1139,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     <div className="flex-grow min-w-0">
                                         <div className="text-xs font-bold text-yellow-600 uppercase mb-0.5 tracking-wide truncate">{w.prizeName}</div>
                                         <div className="text-lg font-bold text-gray-800 truncate">{w.name || "Ẩn danh"}</div>
-                                        <div className="text-sm font-mono text-red-600 font-semibold">{w.id}</div>
+                                        <div className="text-sm font-mono text-red-600 font-semibold">{maskId ? maskIdentifier(w.id) : w.id}</div>
                                     </div>
                                     <div className="text-xs text-gray-400 whitespace-nowrap">#{winners.length - index}</div>
                                 </div>
@@ -1065,7 +1166,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                         </FitText>
 
                         <FitText className="text-4xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">
-                            {modalData.id}
+                            {maskId ? maskIdentifier(modalData.id) : modalData.id}
                         </FitText>
 
                         <div className="flex justify-center gap-4 mt-8">

@@ -8,6 +8,7 @@ export type OfflineState = {
     candidates: string;
     winners: any[];
     removeWinner: boolean;
+    maskId: boolean;
 };
 
 const DEFAULT_STATE: OfflineState = {
@@ -16,6 +17,7 @@ const DEFAULT_STATE: OfflineState = {
     candidates: '',
     winners: [],
     removeWinner: true,
+    maskId: false,
 };
 
 let channel: BroadcastChannel | null = null;

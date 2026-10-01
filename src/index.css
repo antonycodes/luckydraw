@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .glass-panel {

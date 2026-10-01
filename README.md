@@ -18,3 +18,10 @@ View your app in AI Studio: https://ai.studio/apps/ec2565d2-e429-41e5-acd9-ee59e
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Offline mode
+
+Open `http://localhost:3000/?offline=true` after starting the local app.
+
+This mode needs no Internet connection after dependencies are installed.
+Candidates, settings, and winners stay on the current device.

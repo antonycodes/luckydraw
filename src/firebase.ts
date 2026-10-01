@@ -17,28 +17,46 @@ const firebaseConfig = {
     measurementId: "G-341Q5WTRBW"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+type FirebaseRefs = {
+    db: ReturnType<typeof getDatabase>;
+    stateRef: DatabaseReference;
+    commandRef: DatabaseReference;
+    candidatesRef: DatabaseReference;
+    winnersRef: DatabaseReference;
+    settingsRef: DatabaseReference;
+};
 
-// --- Database References ---
-const stateRef = ref(db, 'lucky_draw/state');
-const commandRef = ref(db, 'lucky_draw/command');
-const candidatesRef = ref(db, 'lucky_draw/candidates');
-const winnersRef = ref(db, 'lucky_draw/winners');
-const settingsRef = ref(db, 'lucky_draw/settings');
+let firebaseRefs: FirebaseRefs | null = null;
+
+const getFirebaseRefs = (): FirebaseRefs => {
+    if (!firebaseRefs) {
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        firebaseRefs = {
+            db,
+            stateRef: ref(db, 'lucky_draw/state'),
+            commandRef: ref(db, 'lucky_draw/command'),
+            candidatesRef: ref(db, 'lucky_draw/candidates'),
+            winnersRef: ref(db, 'lucky_draw/winners'),
+            settingsRef: ref(db, 'lucky_draw/settings'),
+        };
+    }
+    return firebaseRefs;
+};
 
 // --- Write helpers ---
 export const updateState = (data: Record<string, any>) => {
-    return set(stateRef, data);
+    return set(getFirebaseRefs().stateRef, data);
 };
 
 export const updateStateField = (field: string, value: any) => {
+    const { db } = getFirebaseRefs();
     const fieldRef = ref(db, `lucky_draw/state/${field}`);
     return set(fieldRef, value);
 };
 
 export const sendCommand = (type: string, payload: any = null) => {
-    return set(commandRef, {
+    return set(getFirebaseRefs().commandRef, {
         type,
         payload,
         ts: Date.now()
@@ -46,7 +64,7 @@ export const sendCommand = (type: string, payload: any = null) => {
 };
 
 export const saveCandidates = (text: string) => {
-    return set(candidatesRef, text);
+    return set(getFirebaseRefs().candidatesRef, text);
 };
 
 export const saveWinners = (winners: any[]) => {
@@ -55,15 +73,16 @@ export const saveWinners = (winners: any[]) => {
         ...w,
         timestamp: w.timestamp instanceof Date ? w.timestamp.toISOString() : w.timestamp
     }));
-    return set(winnersRef, serialized);
+    return set(getFirebaseRefs().winnersRef, serialized);
 };
 
 export const saveSettings = (settings: Record<string, any>) => {
-    return set(settingsRef, settings);
+    return set(getFirebaseRefs().settingsRef, settings);
 };
 
 // --- Read/Listen helpers ---
 export const onStateChange = (callback: (data: any) => void) => {
+    const { stateRef } = getFirebaseRefs();
     onValue(stateRef, (snapshot) => {
         const data = snapshot.val();
         if (data) callback(data);
@@ -71,6 +90,7 @@ export const onStateChange = (callback: (data: any) => void) => {
 };
 
 export const onCommandChange = (callback: (data: any) => void) => {
+    const { commandRef } = getFirebaseRefs();
     let isFirst = true;
     onValue(commandRef, (snapshot) => {
         const data = snapshot.val();
@@ -85,6 +105,7 @@ export const onCommandChange = (callback: (data: any) => void) => {
 };
 
 export const onCandidatesChange = (callback: (text: string) => void) => {
+    const { candidatesRef } = getFirebaseRefs();
     onValue(candidatesRef, (snapshot) => {
         const data = snapshot.val();
         if (data !== null && data !== undefined) callback(data);
@@ -92,6 +113,7 @@ export const onCandidatesChange = (callback: (text: string) => void) => {
 };
 
 export const onWinnersChange = (callback: (winners: any[]) => void) => {
+    const { winnersRef } = getFirebaseRefs();
     onValue(winnersRef, (snapshot) => {
         const data = snapshot.val();
         callback(data || []);
@@ -99,6 +121,7 @@ export const onWinnersChange = (callback: (winners: any[]) => void) => {
 };
 
 export const onSettingsChange = (callback: (settings: any) => void) => {
+    const { settingsRef } = getFirebaseRefs();
     onValue(settingsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) callback(data);
@@ -107,11 +130,10 @@ export const onSettingsChange = (callback: (settings: any) => void) => {
 
 // --- Cleanup ---
 export const detachListeners = () => {
-    off(stateRef);
-    off(commandRef);
-    off(candidatesRef);
-    off(winnersRef);
-    off(settingsRef);
+    if (!firebaseRefs) return;
+    off(firebaseRefs.stateRef);
+    off(firebaseRefs.commandRef);
+    off(firebaseRefs.candidatesRef);
+    off(firebaseRefs.winnersRef);
+    off(firebaseRefs.settingsRef);
 };
-
-export { db, stateRef, commandRef, candidatesRef, winnersRef, settingsRef };

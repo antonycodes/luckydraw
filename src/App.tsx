@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import AdminPanel from './AdminPanel';
 import './admin.css';
 import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners } from './firebase';
+import { hasOfflineState, loadOfflineState, sendOfflineCommand, subscribeOffline, updateOfflineState } from './offline';
 
 // --- Theme ---
 const DEFAULT_BG = 'radial-gradient(ellipse at 50% 35%, #2a0202 0%, #120000 55%, #000000 100%)';
@@ -170,11 +171,11 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
     };
 
     return (
-        <div className="relative h-[22rem] md:h-[28rem] flex flex-col items-center justify-center overflow-hidden w-full select-none">
+        <div className="relative h-[15rem] md:h-[28rem] flex flex-col items-center justify-center overflow-hidden w-full select-none">
             {/* The slot machine cylinder container */}
             <div className="flex flex-col items-center justify-center transition-all w-full overflow-visible">
                 {/* Top Number */}
-                <div className="h-[6rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
+                <div className="h-[3rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
                     <div
                         style={subStyleTop}
                         className={`font-extrabold text-white/50 font-sans tracking-tight overflow-visible tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}
@@ -184,7 +185,7 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
                 </div>
 
                 {/* Middle (Active) Number */}
-                <div className="h-[10rem] md:h-[14rem] flex items-center justify-center opacity-100 scale-100 transition-all duration-300 relative z-10 w-full select-none overflow-visible">
+                <div className="h-[7rem] md:h-[14rem] flex items-center justify-center opacity-100 scale-100 transition-all duration-300 relative z-10 w-full select-none overflow-visible">
                     <div
                         style={middleStyle}
                         className={`font-extrabold text-white font-sans tracking-tight display-text overflow-visible transition-all duration-300 whitespace-nowrap ${isRolling ? 'blur-[0.5px]' : ''} ${isMainMessage ? '' : 'tabular-nums'}`}
@@ -194,7 +195,7 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
                 </div>
 
                 {/* Bottom Number */}
-                <div className="h-[6rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
+                <div className="h-[3rem] md:h-[7rem] flex items-center justify-center opacity-30 scale-75 blur-[0.5px] transition-all duration-300 w-full select-none overflow-hidden">
                     <div
                         style={subStyleBottom}
                         className={`font-extrabold text-white/50 font-sans tracking-tight overflow-visible tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}
@@ -226,13 +227,13 @@ const Stage = ({
                     </FitText>
                 </div>
 
-                <div className="relative h-[36vh] md:h-[64vh] aspect-[500/505] max-w-[88vw] shrink-0">
+                <div className="relative h-[28vh] md:h-[64vh] aspect-[500/505] max-w-[88vw] shrink-0">
                     <LuckyWheel isRolling={isRolling} />
                 </div>
             </div>
 
             {showControls && (
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50">
+                <div className="fixed md:absolute bottom-8 left-1/2 -translate-x-1/2 z-50">
                     <button
                         onClick={onSpin}
                         disabled={isSpinning}
@@ -256,7 +257,7 @@ const Stage = ({
     );
 };
 
-const ProjectorView = () => {
+const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
@@ -275,17 +276,7 @@ const ProjectorView = () => {
     const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
-        // Listen to state changes from Firebase
-        onStateChange((data) => {
-            if (data.bgImage !== undefined) setBgImage(data.bgImage);
-            if (data.prize !== undefined) setPrize(data.prize);
-        });
-
-        // Listen to winners from Firebase
-        onWinnersChange((w) => setWinners(w));
-
-        // Listen to commands from Firebase
-        onCommandChange((cmd) => {
+        const handleCommand = (cmd: any) => {
             const { type, payload } = cmd;
             switch (type) {
                 case 'SHOW_PRIZE_SCENE':
@@ -362,10 +353,33 @@ const ProjectorView = () => {
                     setShowModal(false);
                     break;
             }
+        };
+
+        if (offline) {
+            const state = loadOfflineState();
+            setBgImage(state.bgImage);
+            setPrize(state.prize);
+            setWinners(state.winners);
+            return subscribeOffline((message) => {
+                if (message.type === 'state') {
+                    const data = message.payload;
+                    if (data.bgImage !== undefined) setBgImage(data.bgImage);
+                    if (data.prize !== undefined) setPrize(data.prize);
+                    if (data.winners !== undefined) setWinners(data.winners);
+                }
+                if (message.type === 'command') handleCommand(message.payload);
+            });
+        }
+
+        onStateChange((data) => {
+            if (data.bgImage !== undefined) setBgImage(data.bgImage);
+            if (data.prize !== undefined) setPrize(data.prize);
         });
+        onWinnersChange((w) => setWinners(w));
+        onCommandChange(handleCommand);
 
         return () => detachListeners();
-    }, []);
+    }, [offline]);
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: bgImage }}>
@@ -454,7 +468,7 @@ const ProjectorView = () => {
     );
 };
 
-const ControlView = () => {
+const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [winners, setWinners] = useState<any[]>([]);
@@ -485,10 +499,31 @@ const ControlView = () => {
     const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
-        // Listen to winners from Firebase to keep in sync
+        if (offline) {
+            const state = loadOfflineState();
+            setWinners(state.winners);
+            setInputText(hasOfflineState() ? state.candidates : SAMPLE_DATA_STR);
+            setBgImage(state.bgImage || DEFAULT_BG);
+            setPrize(state.prize);
+            setRemoveWinner(state.removeWinner);
+            return subscribeOffline((message) => {
+                if (message.type !== 'state') return;
+                const data = message.payload;
+                if (data.winners !== undefined) setWinners(data.winners);
+                if (data.candidates !== undefined) setInputText(data.candidates);
+                if (data.bgImage !== undefined) setBgImage(data.bgImage);
+                if (data.prize !== undefined) setPrize(data.prize);
+                if (data.removeWinner !== undefined) setRemoveWinner(data.removeWinner);
+            });
+        }
+
         onWinnersChange((w) => setWinners(w));
         return () => detachListeners();
-    }, []);
+    }, [offline]);
+
+    const appCommand = (type: string, payload: any = null) => offline ? sendOfflineCommand(type, payload) : sendCommand(type, payload);
+    const saveAppWinners = (next: any[]) => offline ? updateOfflineState({ winners: next }) : saveWinners(next);
+    const saveAppCandidates = (text: string) => offline ? updateOfflineState({ candidates: text }) : saveCandidates(text);
 
     useEffect(() => {
         if (customSound) {
@@ -579,8 +614,8 @@ const ControlView = () => {
         });
         setShowModal(false);
 
-        // Send spin command to Firebase with candidates for local animation
-        sendCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates });
+        // Send the spin command through the active sync channel.
+        appCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates });
 
         if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
@@ -625,7 +660,7 @@ const ControlView = () => {
         const winRecord = { ...winner, prizeName: prize.name, prizeImage: prize.image, timestamp: new Date() };
         const newWinners = [winRecord, ...winners];
         setWinners(newWinners);
-        saveWinners(newWinners);
+        saveAppWinners(newWinners);
 
         addLog("WINNER_FOUND", `Người trúng: ${winner.id} - ${winner.name} (Giải: ${prize.name})`);
 
@@ -634,20 +669,20 @@ const ControlView = () => {
         setDisplayId(winner.id);
         setDisplayPrevId(prevId);
         setDisplayNextId(nextId);
-        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId });
+        appCommand('SPIN_STOP', { id: winner.id, prevId, nextId });
 
         const name = winner.name || "(Không có tên)";
         setDisplayName(name);
         setShowName(true);
         playWinSound();
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
-        setTimeout(() => sendCommand('SHOW_NAME', { name }), 500);
+        setTimeout(() => appCommand('SHOW_NAME', { name }), 500);
 
         setTimeout(() => {
             setModalData({ id: winner.id, name: name });
             setShowModal(true);
             triggerModalConfetti();
-            sendCommand('SHOW_MODAL', { id: winner.id, name: name });
+            appCommand('SHOW_MODAL', { id: winner.id, name: name });
         }, 2000);
 
         if (removeWinner) {
@@ -655,7 +690,7 @@ const ControlView = () => {
             newCandidates.splice(winnerIndex, 1);
             const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
             setInputText(newText);
-            saveCandidates(newText);
+            saveAppCandidates(newText);
             addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
         }
 
@@ -667,19 +702,20 @@ const ControlView = () => {
         setDisplayPrevId("");
         setDisplayNextId("");
         setShowName(false);
-        sendCommand('RESET');
+        setShowModal(false);
+        appCommand('RESET');
         addLog("RESET", "Reset màn hình hiển thị.");
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
-        sendCommand('CLOSE_MODAL');
+        appCommand('CLOSE_MODAL');
         setTimeout(() => {
             setDisplayId("ARE YOU READY ?");
             setDisplayPrevId("");
             setDisplayNextId("");
             setShowName(false);
-            sendCommand('RESET');
+            appCommand('RESET');
         }, 300);
     };
 
@@ -700,7 +736,7 @@ const ControlView = () => {
         const height = window.screen.availHeight;
 
         const win = window.open(
-            `${window.location.origin}${window.location.pathname}?projector=true`,
+            `${window.location.origin}${window.location.pathname}?${offline ? 'offline=true&' : ''}projector=true`,
             '_blank',
             `popup=yes,width=${width},height=${height},top=0,left=0`
         );
@@ -711,9 +747,12 @@ const ControlView = () => {
         }
         win.focus();
 
-        // Sync state to Firebase so projector picks it up
-        updateStateField('bgImage', bgImage);
-        updateStateField('prize', prize);
+        if (offline) {
+            updateOfflineState({ bgImage, prize });
+        } else {
+            updateStateField('bgImage', bgImage);
+            updateStateField('prize', prize);
+        }
     };
     const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -721,7 +760,8 @@ const ControlView = () => {
             reader.onload = (ev) => {
                 const url = `url(${ev.target?.result})`;
                 setBgImage(url);
-                updateStateField('bgImage', url);
+                if (offline) updateOfflineState({ bgImage: url });
+                else updateStateField('bgImage', url);
             };
             reader.readAsDataURL(e.target.files[0]);
         }
@@ -765,6 +805,7 @@ const ControlView = () => {
     const softReset = () => {
         if (confirm("Bạn có chắc muốn làm mới chương trình?\n- Lịch sử trúng thưởng sẽ bị xóa.\n- Danh sách tham gia trong ô nhập liệu sẽ được giữ nguyên.")) {
             setWinners([]);
+            if (offline) updateOfflineState({ winners: [] });
             handleReset();
             setIsSpinning(false);
             addLog("SOFT_RESET", "Người dùng đã làm mới (Reset) chương trình.");
@@ -795,7 +836,7 @@ const ControlView = () => {
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
         csvContent += "STT,Tên Giải,Tên Người Trúng,MSSV,Thời Gian\n";
         [...winners].reverse().forEach((w, index) => {
-            const date = w.timestamp.toLocaleString('vi-VN');
+            const date = new Date(w.timestamp).toLocaleString('vi-VN');
             const row = `${index + 1},"${(w.prizeName || "").replace(/"/g, '""')}","${(w.name || "").replace(/"/g, '""')}","${(w.id || "").replace(/"/g, '""')}","${date}"`;
             csvContent += row + "\n";
         });
@@ -813,7 +854,9 @@ const ControlView = () => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                setInputText(ev.target?.result as string);
+                const value = ev.target?.result as string;
+                setInputText(value);
+                if (offline) updateOfflineState({ candidates: value });
                 addLog("IMPORT_DATA", `Nhập dữ liệu từ CSV.`);
                 alert("Đã tải dữ liệu!");
             };
@@ -825,8 +868,9 @@ const ControlView = () => {
         <div className="relative flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {/* Top Nav */}
-            <div id="topNav" className="fixed bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300">
+            <div id="topNav" className="fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300">
                 <div className="glass-panel rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/50">
+                    {offline && <span className="px-3 py-2 text-xs font-bold text-green-700 bg-green-100 rounded-full">OFFLINE</span>}
                     <button onClick={() => setActiveTab('settings')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
                         <i className="fa-solid fa-gear"></i> <span>Cấu hình</span>
                     </button>
@@ -870,7 +914,7 @@ const ControlView = () => {
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-sm text-gray-600">Loại bỏ người đã thắng?</span>
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={removeWinner} onChange={e => setRemoveWinner(e.target.checked)} className="sr-only peer" />
+                                        <input type="checkbox" checked={removeWinner} onChange={e => { const value = e.target.checked; setRemoveWinner(value); if (offline) updateOfflineState({ removeWinner: value }); }} className="sr-only peer" />
                                         <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                     </label>
                                 </div>
@@ -914,14 +958,14 @@ const ControlView = () => {
                             </label>
                             <textarea
                                 value={inputText}
-                                onChange={e => setInputText(e.target.value)}
+                                onChange={e => { const value = e.target.value; setInputText(value); if (offline) updateOfflineState({ candidates: value }); }}
                                 className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50"
                                 placeholder="2011001, Nguyễn Văn A..."
                                 spellCheck="false"
                             />
                             <div className="flex gap-2 mt-2">
-                                <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
-                                <button onClick={() => { setInputText(SAMPLE_DATA_STR); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); if (offline) updateOfflineState({ candidates: '' }); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
                         </div>
                     </div>
@@ -958,17 +1002,17 @@ const ControlView = () => {
                             <p className="text-gray-500 text-sm mt-1">Lịch sử các giải thưởng đã trao</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => { addLog("SHOW_WINNERS", "Hiển thị danh sách trúng thưởng lên màn hình chiếu"); sendCommand('SHOW_WINNERS_LIST', winners); }} className="px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200 font-semibold shadow-sm flex items-center gap-2">
+                            <button onClick={() => { addLog("SHOW_WINNERS", "Hiển thị danh sách trúng thưởng lên màn hình chiếu"); appCommand('SHOW_WINNERS_LIST', winners); }} className="px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-tv"></i> Chiếu DS
                             </button>
-                            <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); sendCommand('BACK_TO_SPIN'); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300 font-semibold shadow-sm flex items-center gap-2">
+                            <button onClick={() => { addLog("BACK_TO_SPIN", "Quay lại màn hình quay số"); appCommand('BACK_TO_SPIN'); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-rotate-left"></i> Ẩn / Back
                             </button>
                             <div className="w-[1px] h-8 bg-gray-300 mx-2"></div>
                             <button onClick={exportWinners} className="px-4 py-2 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-green-200 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-file-excel"></i> Xuất danh sách
                             </button>
-                            <button onClick={() => { if (confirm("Bạn có chắc?")) { setWinners([]); addLog("CLEAR_HISTORY", "Xóa lịch sử trúng thưởng."); } }} className="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-red-100 flex items-center gap-2">
+                            <button onClick={() => { if (confirm("Bạn có chắc?")) { setWinners([]); if (offline) updateOfflineState({ winners: [] }); addLog("CLEAR_HISTORY", "Xóa lịch sử trúng thưởng."); } }} className="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-red-100 flex items-center gap-2">
                                 <i className="fa-solid fa-trash-can"></i> Xóa lịch sử
                             </button>
                         </div>
@@ -1040,14 +1084,15 @@ export default function App() {
     const params = window.location.search;
     const isProjector = params.includes('projector=true');
     const isAdmin = params.includes('admin=true');
+    const isOffline = params.includes('offline=true');
 
     if (isProjector) {
-        return <ProjectorView />;
+        return <ProjectorView offline={isOffline} />;
     }
 
-    if (isAdmin) {
+    if (isAdmin && !isOffline) {
         return <AdminPanel />;
     }
 
-    return <ControlView />;
+    return <ControlView offline={isOffline} />;
 }

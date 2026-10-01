@@ -197,6 +197,47 @@ const AdminPanel = () => {
         addLog("RESET", "Reset màn hình.");
     };
 
+    const openProjectorWindow = () => {
+        const projectorUrl = new URL(window.location.href);
+        projectorUrl.search = '?projector=true&fullscreen=true';
+        projectorUrl.hash = '';
+        const currentScreen = window.screen as typeof window.screen & { availLeft: number; availTop: number };
+        const projectorWindow = window.open(
+            projectorUrl.toString(),
+            'lucky-draw-projector',
+            `popup=yes,width=${currentScreen.availWidth},height=${currentScreen.availHeight},left=${currentScreen.availLeft},top=${currentScreen.availTop}`
+        );
+
+        if (!projectorWindow) {
+            alert('Cửa sổ bị chặn. Hãy cho phép pop-up cho trang này.');
+            return;
+        }
+
+        const positionProjector = async () => {
+            let targetScreen = currentScreen;
+            const screenApi = window as Window & {
+                getScreenDetails?: () => Promise<{ currentScreen: typeof currentScreen; screens: typeof currentScreen[] }>;
+            };
+            try {
+                const details = await screenApi.getScreenDetails?.();
+                targetScreen = details?.screens.find(screen => screen !== details.currentScreen) || currentScreen;
+            } catch {
+                // Fall back to the current screen when display permission is unavailable.
+            }
+
+            try {
+                projectorWindow.moveTo(targetScreen.availLeft, targetScreen.availTop);
+                projectorWindow.resizeTo(targetScreen.availWidth, targetScreen.availHeight);
+                projectorWindow.focus();
+            } catch {
+                projectorWindow.focus();
+            }
+        };
+
+        void positionProjector();
+        addLog('PROJECTOR_OPEN', 'Đã mở màn hình trình chiếu.');
+    };
+
 
 
     const showWinnersList = () => {
@@ -391,6 +432,10 @@ const AdminPanel = () => {
                         <span className="status-dot"></span>
                         <span>{connected ? 'Đã kết nối' : 'Mất kết nối'}</span>
                     </div>
+                    <button onClick={openProjectorWindow} className="projector-btn">
+                        <i className="fa-solid fa-display"></i>
+                        <span>Trình chiếu</span>
+                    </button>
                     {isAuthenticated ? (
                         <button onClick={handleLogout} className="projector-btn" style={{ borderColor: 'rgba(248,113,113,0.3)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
                             <i className="fa-solid fa-right-from-bracket"></i>

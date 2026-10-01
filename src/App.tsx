@@ -430,6 +430,11 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
         return () => detachListeners();
     }, [offline]);
 
+    useEffect(() => {
+        if (new URLSearchParams(window.location.search).get('fullscreen') !== 'true') return;
+        document.documentElement.requestFullscreen?.().catch(() => undefined);
+    }, []);
+
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: bgImage }}>
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>

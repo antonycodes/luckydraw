@@ -23,7 +23,7 @@ const triggerModalConfetti = () => {
 };
 
 const parseCandidateLine = (line: string) => {
-    let parts = line.split(',');
+    let parts = line.includes('\t') ? line.split('\t') : line.split(',');
     if (parts.length < 2) parts = line.split('-');
     if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
     return { id: line.trim(), name: '' };
@@ -502,6 +502,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState(SAMPLE_DATA_STR);
+    const [showDataTable, setShowDataTable] = useState(false);
 
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayPrevId, setDisplayPrevId] = useState("");
@@ -886,6 +887,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             reader.onload = (ev) => {
                 const value = ev.target?.result as string;
                 setInputText(value);
+                setShowDataTable(true);
                 if (offline) updateOfflineState({ candidates: value });
                 addLog("IMPORT_DATA", `Nhập dữ liệu từ CSV.`);
                 alert("Đã tải dữ liệu!");
@@ -913,6 +915,10 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         const next = serializeCandidates(rows);
         setInputText(next);
         if (offline) updateOfflineState({ candidates: next });
+    };
+    const applyData = () => {
+        setShowDataTable(true);
+        addLog("APPLY_DATA", `Đã chuyển ${parseCandidates(inputText).length} dòng sang bảng.`);
     };
 
     return (
@@ -995,7 +1001,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             </div>                        </div>
 
                         <div className="flex flex-col h-full">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
+                            <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{parseCandidates(inputText).length}</span>
@@ -1018,8 +1024,11 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                             <i className="fa-solid fa-upload"></i> CSV
                                         </label>
                                     </div>
+                                    {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-blue-600 hover:underline font-semibold">Dán nhanh</button>}
                                 </div>
-                            </label>
+                            </div>
+                            {showDataTable ? (
+                                <>
                             <div className="flex-grow min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">
                                 <table className="w-full text-sm">
                                     <thead className="sticky top-0 z-10 bg-gray-100/95 text-left text-xs uppercase text-gray-500">
@@ -1067,6 +1076,24 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                 <button onClick={addCandidateRow} className="text-xs text-blue-600 hover:underline">Thêm dòng</button>
                                 <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
+                                </>
+                            ) : (
+                                <>
+                                    <textarea
+                                        value={inputText}
+                                        onChange={e => { const value = e.target.value; setInputText(value); if (offline) updateOfflineState({ candidates: value }); }}
+                                        className="flex-grow w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 font-sans text-sm shadow-inner bg-white/50"
+                                        placeholder="Dán 2 cột từ Excel: ID[TAB]Họ và tên"
+                                        spellCheck="false"
+                                    />
+                                    <p className="mt-2 text-[11px] text-gray-500">Dán trực tiếp từ Excel, mỗi dòng gồm ID và Họ và tên.</p>
+                                    <div className="flex gap-2 mt-2">
+                                        <button onClick={applyData} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Apply data</button>
+                                        <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); if (offline) updateOfflineState({ candidates: '' }); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                        <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                     <div className="mt-4 text-center">

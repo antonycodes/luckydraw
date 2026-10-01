@@ -39,6 +39,22 @@ const serializeCandidates = (candidates: any[]) => candidates
     .map(candidate => candidate.name ? `${candidate.id}, ${candidate.name}` : candidate.id)
     .join('\n');
 
+const splitCandidateColumns = (text: string) => {
+    const rows = parseEditableCandidates(text);
+    return {
+        ids: rows.map(candidate => candidate.id).join('\n'),
+        names: rows.map(candidate => candidate.name).join('\n')
+    };
+};
+
+const combineCandidateColumns = (ids: string, names: string) => {
+    if (!ids.trim() && !names.trim()) return '';
+    const idRows = ids.split(/\r?\n/);
+    const nameRows = names.split(/\r?\n/);
+    const rowCount = Math.max(idRows.length, nameRows.length);
+    return Array.from({ length: rowCount }, (_, index) => `${idRows[index]?.trim() || ''}\t${nameRows[index]?.trim() || ''}`).join('\n').trimEnd();
+};
+
 const getDuplicateIds = (candidates: any[]) => {
     const counts = new Map<string, { id: string; count: number }>();
     candidates.forEach(candidate => {
@@ -511,6 +527,8 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState('');
+    const [inputIds, setInputIds] = useState('');
+    const [inputNames, setInputNames] = useState('');
     const [showDataTable, setShowDataTable] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -532,11 +550,18 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const audioCtxRef = useRef<AudioContext | null>(null);
     const spinIntervalRef = useRef<any>(null);
 
+    const syncImportData = (text: string) => {
+        const columns = splitCandidateColumns(text);
+        setInputText(text);
+        setInputIds(columns.ids);
+        setInputNames(columns.names);
+    };
+
     useEffect(() => {
         if (offline) {
             const state = loadOfflineState();
             setWinners(state.winners);
-            setInputText(hasOfflineState() ? state.candidates : '');
+            syncImportData(hasOfflineState() ? state.candidates : '');
             setBgImage(state.bgImage || DEFAULT_BG);
             setPrize(state.prize);
             setRemoveWinner(state.removeWinner);
@@ -545,7 +570,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                 if (message.type !== 'state') return;
                 const data = message.payload;
                 if (data.winners !== undefined) setWinners(data.winners);
-                if (data.candidates !== undefined) setInputText(data.candidates);
+                if (data.candidates !== undefined) syncImportData(data.candidates);
                 if (data.bgImage !== undefined) setBgImage(data.bgImage);
                 if (data.prize !== undefined) setPrize(data.prize);
                 if (data.removeWinner !== undefined) setRemoveWinner(data.removeWinner);
@@ -563,6 +588,11 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const appCommand = (type: string, payload: any = null) => offline ? sendOfflineCommand(type, payload) : sendCommand(type, payload);
     const saveAppWinners = (next: any[]) => offline ? updateOfflineState({ winners: next }) : saveWinners(next);
     const saveAppCandidates = (text: string) => offline ? updateOfflineState({ candidates: text }) : saveCandidates(text);
+    const updateImportColumns = (ids: string, names: string) => {
+        const next = combineCandidateColumns(ids, names);
+        syncImportData(next);
+        if (offline) updateOfflineState({ candidates: next });
+    };
 
     useEffect(() => {
         if (customSound) {
@@ -728,7 +758,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             const newCandidates = [...parsedCandidates];
             newCandidates.splice(winnerIndex, 1);
             const newText = serializeCandidates(newCandidates);
-            setInputText(newText);
+            syncImportData(newText);
             saveAppCandidates(newText);
             addLog("REMOVE_CANDIDATE", `Đã loại bỏ ${winner.id} khỏi danh sách.`);
         }
@@ -846,7 +876,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         if (confirm("Bạn có chắc muốn làm mới chương trình?\n- Lịch sử trúng thưởng sẽ bị xóa.\n- Dữ liệu tham gia sẽ về trắng.\n- Màn hình sẽ quay lại ô Import data.")) {
             setWinners([]);
             if (offline) updateOfflineState({ winners: [] });
-            setInputText('');
+            syncImportData('');
             setShowDataTable(false);
             setCurrentPage(1);
             if (offline) updateOfflineState({ candidates: '' });
@@ -901,7 +931,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const value = ev.target?.result as string;
-                setInputText(value);
+                syncImportData(value);
                 setShowDataTable(true);
                 if (offline) updateOfflineState({ candidates: value });
                 addLog("IMPORT_DATA", `Nhập dữ liệu từ CSV.`);
@@ -929,19 +959,19 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         const rows = parseEditableCandidates(inputText);
         rows[index] = { ...rows[index], [field]: value };
         const next = serializeCandidates(rows);
-        setInputText(next);
+        syncImportData(next);
         if (offline) updateOfflineState({ candidates: next });
     };
     const addCandidateRow = () => {
         const next = `${inputText}${inputText ? '\n' : ''}`;
-        setInputText(next);
+        syncImportData(next);
         if (offline) updateOfflineState({ candidates: next });
     };
     const removeCandidateRow = (index: number) => {
         const rows = parseEditableCandidates(inputText);
         rows.splice(index, 1);
         const next = serializeCandidates(rows);
-        setInputText(next);
+        syncImportData(next);
         if (offline) updateOfflineState({ candidates: next });
     };
     const applyData = () => {
@@ -951,7 +981,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     };
     const resetCandidateData = () => {
         if (!confirm('Đưa dữ liệu tham gia về trắng?')) return;
-        setInputText('');
+        syncImportData('');
         setShowDataTable(false);
         setCurrentPage(1);
         if (offline) updateOfflineState({ candidates: '' });
@@ -1145,27 +1175,38 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <div className="flex gap-2 mt-2">
                                 <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
                                 <button onClick={addCandidateRow} className="text-xs text-blue-600 hover:underline">Thêm dòng</button>
-                                <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-2 overflow-hidden rounded-t-xl border border-b-0 border-gray-300 bg-gray-100 text-[11px] font-semibold uppercase text-gray-500">
-                                        <div className="border-r border-gray-300 px-3 py-2">ID</div>
-                                        <div className="px-3 py-2">Họ và tên</div>
+                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                        <label className="block text-xs font-semibold text-gray-600">
+                                            <span className="mb-1 block">ID</span>
+                                            <textarea
+                                                value={inputIds}
+                                                onChange={e => updateImportColumns(e.target.value, inputNames)}
+                                                className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 font-mono text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Mỗi dòng một ID\n20240001\n20240002"
+                                                spellCheck="false"
+                                            />
+                                        </label>
+                                        <label className="block text-xs font-semibold text-gray-600">
+                                            <span className="mb-1 block">Họ và tên</span>
+                                            <textarea
+                                                value={inputNames}
+                                                onChange={e => updateImportColumns(inputIds, e.target.value)}
+                                                className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Mỗi dòng một họ và tên\nNguyễn Hoàng Long\nTrịnh Thu Hà"
+                                                spellCheck="false"
+                                            />
+                                        </label>
                                     </div>
-                                    <textarea
-                                        value={inputText}
-                                        onChange={e => { const value = e.target.value; setInputText(value); if (offline) updateOfflineState({ candidates: value }); }}
-                                        className="h-[min(38vh,360px)] min-h-[180px] w-full flex-none rounded-b-xl border border-gray-300 bg-white/50 p-3 font-sans text-sm text-gray-700 shadow-inner outline-none resize-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Dán từ Excel theo từng dòng: ID[TAB]Họ và tên"
-                                        spellCheck="false"
-                                    />
-                                    <p className="mt-2 text-[11px] text-gray-500">Giữ đúng 2 cột: ID và Họ và tên. Mỗi dòng cách nhau bằng phím Tab.</p>
+                                    <p className="mt-2 text-[11px] text-gray-500">Dán riêng từng cột từ Excel. Dòng ID thứ nhất ghép với họ tên thứ nhất.</p>
                                     <div className="flex gap-2 mt-2">
                                         <button onClick={applyData} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Apply data</button>
                                         <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
-                                        <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                        <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                                     </div>
                                 </>
                             )}

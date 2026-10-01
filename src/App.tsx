@@ -236,7 +236,7 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
 
 const Stage = ({
     displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
-    showControls = true, onSpin, isSpinning, onReset, showModal = false, maskId = false
+    showControls = true, onSpin, isSpinning, showModal = false, maskId = false
 }: any) => {
     const visibleId = maskId ? maskIdentifier(displayId) : displayId;
     const visiblePrevId = maskId ? maskIdentifier(displayPrevId) : displayPrevId;
@@ -278,11 +278,6 @@ const Stage = ({
                 </div>
             )}
 
-            {showControls && (
-                <button onClick={onReset} className="absolute top-8 right-8 z-30 text-red-200 hover:text-white transition-colors bg-white/10 border border-red-500/40 p-4 rounded-full hover:bg-red-500/40" title="Reset màn hình">
-                    <i className="fa-solid fa-rotate-right text-xl"></i>
-                </button>
-            )}
         </div>
     );
 };
@@ -1194,7 +1189,6 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                         isRolling={isRolling}
                         onSpin={startAutoSpin}
                         isSpinning={isSpinning}
-                        onReset={handleReset}
                         showModal={showModal}
                         maskId={maskId}
                     />

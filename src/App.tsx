@@ -1325,10 +1325,11 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
 };
 
 export default function App() {
-    const params = window.location.search;
-    const isProjector = params.includes('projector=true');
-    const isAdmin = params.includes('admin=true');
-    const isOffline = params.includes('offline=true');
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+    const query = new URLSearchParams(window.location.search);
+    const isProjector = query.get('projector') === 'true';
+    const isAdmin = pathname === '/admin' || query.get('admin') === 'true';
+    const isOffline = query.get('offline') === 'true';
 
     if (isProjector) {
         return <ProjectorView offline={isOffline} />;

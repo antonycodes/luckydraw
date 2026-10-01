@@ -2,14 +2,39 @@ import React, { useState, useEffect, useRef } from 'react';
 import { sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners } from './firebase';
 
 const parseCandidates = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim() !== '');
-    return lines.map(line => {
-        let parts = line.split(',');
-        if (parts.length < 2) parts = line.split('-');
-        if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
-        return { id: line.trim(), name: "" };
-    });
+    return text.split(/\r?\n/).filter(line => line.trim() !== '').map(parseCandidateLine).filter(candidate => candidate.id || candidate.name);
 };
+
+const parseCandidateLine = (line: string) => {
+    let parts = line.includes('\t') ? line.split('\t') : line.split(',');
+    if (parts.length < 2) parts = line.split('-');
+    if (parts.length >= 2) return { id: parts[0].trim(), name: parts.slice(1).join(' ').trim() };
+    return { id: line.trim(), name: '' };
+};
+
+const parseEditableCandidates = (text: string) => text.split(/\r?\n/).filter(line => line.trim() !== '').map(parseCandidateLine);
+
+const serializeCandidates = (candidates: any[]) => candidates
+    .map(candidate => candidate.name ? `${candidate.id}, ${candidate.name}` : candidate.id)
+    .join('\n');
+
+const splitCandidateColumns = (text: string) => {
+    const rows = parseEditableCandidates(text);
+    return {
+        ids: rows.map(candidate => candidate.id).join('\n'),
+        names: rows.map(candidate => candidate.name).join('\n')
+    };
+};
+
+const combineCandidateColumns = (ids: string, names: string) => {
+    if (!ids.trim() && !names.trim()) return '';
+    const idRows = ids.split(/\r?\n/);
+    const nameRows = names.split(/\r?\n/);
+    const rowCount = Math.max(idRows.length, nameRows.length);
+    return Array.from({ length: rowCount }, (_, index) => `${idRows[index]?.trim() || ''}\t${nameRows[index]?.trim() || ''}`).join('\n').trimEnd();
+};
+
+const PAGE_SIZE = 30;
 
 const ADMIN_PASSWORD = 'antony12345';
 
@@ -31,14 +56,25 @@ const AdminPanel = () => {
     const [passwordInput, setPasswordInput] = useState('');
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordError, setPasswordError] = useState(false);
+    const [inputIds, setInputIds] = useState(() => splitCandidateColumns(inputText).ids);
+    const [inputNames, setInputNames] = useState(() => splitCandidateColumns(inputText).names);
+    const [showDataTable, setShowDataTable] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
 
+    const syncImportData = (text: string) => {
+        const columns = splitCandidateColumns(text);
+        setInputText(text);
+        setInputIds(columns.ids);
+        setInputNames(columns.names);
+    };
+
     useEffect(() => {
         // Listen to Firebase for cross-device sync
         onWinnersChange((w) => setWinners(w));
-        onCandidatesChange((text) => setInputText(text));
+        onCandidatesChange((text) => syncImportData(text));
         onStateChange((data) => {
             if (data.bgImage !== undefined) setBgImage(data.bgImage);
             if (data.prize !== undefined) setPrize(data.prize);
@@ -146,7 +182,7 @@ const AdminPanel = () => {
             const newCandidates = [...parsedCandidates];
             newCandidates.splice(winnerIndex, 1);
             const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
-            setInputText(newText);
+            syncImportData(newText);
             saveCandidates(newText);
             addLog("REMOVE", `Đã loại ${winner.id}`);
         }
@@ -209,7 +245,9 @@ const AdminPanel = () => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                setInputText(ev.target?.result as string);
+                syncImportData(ev.target?.result as string);
+                setShowDataTable(true);
+                setCurrentPage(1);
                 addLog("IMPORT", "Nhập CSV");
             };
             reader.readAsText(e.target.files[0]);
@@ -231,7 +269,59 @@ const AdminPanel = () => {
         document.body.removeChild(link);
     };
 
-    const candidateCount = parseCandidates(inputText).length;
+    const parsedCandidates = parseCandidates(inputText);
+    const editableCandidates = parseEditableCandidates(inputText);
+    const candidateCount = parsedCandidates.length;
+    const totalPages = Math.max(1, Math.ceil(editableCandidates.length / PAGE_SIZE));
+    const pageStart = (currentPage - 1) * PAGE_SIZE;
+    const paginatedCandidates = editableCandidates
+        .map((candidate, index) => ({ candidate, index }))
+        .slice(pageStart, pageStart + PAGE_SIZE);
+
+    useEffect(() => {
+        setCurrentPage(page => Math.min(page, totalPages));
+    }, [totalPages]);
+
+    const updateCandidateField = (index: number, field: 'id' | 'name', value: string) => {
+        const rows = parseEditableCandidates(inputText);
+        rows[index] = { ...rows[index], [field]: value };
+        const next = serializeCandidates(rows);
+        syncImportData(next);
+        saveCandidates(next);
+    };
+
+    const updateImportColumns = (ids: string, names: string) => {
+        syncImportData(combineCandidateColumns(ids, names));
+    };
+
+    const addCandidateRow = () => {
+        const next = `${inputText}${inputText ? '\n' : ''},`;
+        syncImportData(next);
+    };
+
+    const removeCandidateRow = (index: number) => {
+        const rows = parseEditableCandidates(inputText);
+        rows.splice(index, 1);
+        const next = serializeCandidates(rows);
+        syncImportData(next);
+        saveCandidates(next);
+    };
+
+    const applyData = () => {
+        saveCandidates(inputText);
+        setShowDataTable(true);
+        setCurrentPage(1);
+        addLog('APPLY_DATA', `Đã chuyển ${candidateCount} dòng sang bảng.`);
+    };
+
+    const resetCandidateData = () => {
+        if (!confirm('Đưa dữ liệu tham gia về trắng?')) return;
+        syncImportData('');
+        saveCandidates('');
+        setShowDataTable(false);
+        setCurrentPage(1);
+        addLog('RESET_DATA', 'Đã đưa dữ liệu tham gia về trắng.');
+    };
 
     const handlePasswordSubmit = () => {
         if (passwordInput === ADMIN_PASSWORD) {
@@ -496,19 +586,95 @@ const AdminPanel = () => {
                                 <label htmlFor="adminCsvInput" className="header-btn">
                                     <i className="fa-solid fa-upload"></i> Nhập CSV
                                 </label>
-                                <button onClick={() => { if (confirm('Xóa hết?')) setInputText(''); }} className="header-btn danger">
+                                {showDataTable && <button onClick={() => setShowDataTable(false)} className="header-btn">Import data</button>}
+                                <button onClick={resetCandidateData} className="header-btn danger">
                                     <i className="fa-solid fa-trash"></i> Xóa tất cả
                                 </button>
                             </div>
                         </div>
-
-                        <textarea
-                            value={inputText}
-                            onChange={e => setInputText(e.target.value)}
-                            className="candidates-textarea"
-                            placeholder="MSSV, Họ và tên..."
-                            spellCheck={false}
-                        />
+                        {showDataTable ? (
+                            <>
+                                <div className="h-[min(65vh,620px)] overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase text-slate-500">
+                                            <tr>
+                                                <th className="p-3 font-semibold">ID</th>
+                                                <th className="p-3 font-semibold">Họ và tên</th>
+                                                <th className="w-20 p-3 text-center font-semibold">Xóa</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedCandidates.map(({ candidate, index }) => (
+                                                <tr key={index} className="border-t border-slate-100">
+                                                    <td className="p-2 align-top">
+                                                        <input
+                                                            aria-label={`ID dòng ${index + 1}`}
+                                                            value={candidate.id}
+                                                            onChange={e => updateCandidateField(index, 'id', e.target.value)}
+                                                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                                                            placeholder="MSSV / SĐT / STT"
+                                                        />
+                                                    </td>
+                                                    <td className="p-2 align-top">
+                                                        <input
+                                                            aria-label={`Họ và tên dòng ${index + 1}`}
+                                                            value={candidate.name}
+                                                            onChange={e => updateCandidateField(index, 'name', e.target.value)}
+                                                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                                                            placeholder="Nguyễn Văn A"
+                                                        />
+                                                    </td>
+                                                    <td className="p-2 text-center align-top">
+                                                        <button type="button" onClick={() => removeCandidateRow(index)} className="rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:bg-red-50" aria-label={`Xóa dòng ${index + 1}`}>
+                                                            Xóa
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500">
+                                    <span>Trang {currentPage} / {totalPages}</span>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-40">Trước</button>
+                                        <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-40">Sau</button>
+                                    </div>
+                                </div>
+                                <div className="mt-3 flex gap-3 text-xs">
+                                    <button type="button" onClick={addCandidateRow} className="font-semibold text-red-600 hover:underline">Thêm dòng</button>
+                                    <button type="button" onClick={resetCandidateData} className="font-semibold text-red-600 hover:underline">Reset data</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    <label className="block text-xs font-semibold text-slate-600">
+                                        <span className="mb-1 block">ID</span>
+                                        <textarea
+                                            value={inputIds}
+                                            onChange={e => updateImportColumns(e.target.value, inputNames)}
+                                            className="h-[min(55vh,520px)] min-h-[220px] w-full resize-none rounded-xl border border-slate-200 bg-white p-4 font-mono text-sm text-slate-700 shadow-inner outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                    <label className="block text-xs font-semibold text-slate-600">
+                                        <span className="mb-1 block">Họ và tên</span>
+                                        <textarea
+                                            value={inputNames}
+                                            onChange={e => updateImportColumns(inputIds, e.target.value)}
+                                            className="h-[min(55vh,520px)] min-h-[220px] w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-inner outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                </div>
+                                <p className="mt-3 text-xs text-slate-500">Dán riêng từng cột từ Excel. Dòng ID thứ nhất ghép với họ tên thứ nhất.</p>
+                                <div className="mt-3 flex gap-3">
+                                    <button type="button" onClick={applyData} className="header-btn success">Apply data</button>
+                                    <button type="button" onClick={resetCandidateData} className="header-btn danger">Reset data</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

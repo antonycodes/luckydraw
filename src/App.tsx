@@ -1001,25 +1001,32 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         <div className="relative flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {/* Top Nav */}
-            <div id="topNav" className="fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300">
-                <div className="glass-panel rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/50">
-                    {offline && <span className="px-3 py-2 text-xs font-bold text-green-700 bg-green-100 rounded-full">OFFLINE</span>}
-                    <button onClick={() => setActiveTab('settings')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
-                        <i className="fa-solid fa-gear"></i> <span>Cấu hình</span>
-                    </button>
-                    <button onClick={() => setActiveTab('stage')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'stage' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
-                        <i className="fa-solid fa-tv"></i> <span>Sân khấu</span>
-                    </button>
-                    <button onClick={() => setActiveTab('fame')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'fame' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
-                        <i className="fa-solid fa-gift"></i> <span>Kết quả</span>
-                    </button>
-                    <div className="w-[1px] h-6 bg-gray-300 mx-1 self-center"></div>
-                    <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-gray-600 hover:bg-gray-100 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
-                        <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
-                    </button>
-                    <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-purple-600 hover:bg-purple-100 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
-                        <i className="fa-solid fa-up-right-from-square"></i> <span>Extend</span>
-                    </button>
+            <div id="topNav" className={`fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300 ${activeTab === 'stage' ? 'nav-collapsed' : ''}`}>
+                <div className="glass-panel nav-shell rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/50">
+                    {activeTab === 'stage' && (
+                        <button type="button" className="nav-reveal" aria-label="Mở điều hướng">
+                            <i className="fa-solid fa-ellipsis"></i>
+                        </button>
+                    )}
+                    <div className="nav-menu-items flex items-center gap-1">
+                        {offline && <span className="px-3 py-2 text-xs font-bold text-green-700 bg-green-100 rounded-full">OFFLINE</span>}
+                        <button onClick={() => setActiveTab('settings')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                            <i className="fa-solid fa-gear"></i> <span>Cấu hình</span>
+                        </button>
+                        <button onClick={() => setActiveTab('stage')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'stage' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                            <i className="fa-solid fa-tv"></i> <span>Sân khấu</span>
+                        </button>
+                        <button onClick={() => setActiveTab('fame')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'fame' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                            <i className="fa-solid fa-gift"></i> <span>Kết quả</span>
+                        </button>
+                        <div className="w-[1px] h-6 bg-gray-300 mx-1 self-center"></div>
+                        <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-gray-600 hover:bg-gray-100 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
+                            <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
+                        </button>
+                        <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-purple-600 hover:bg-purple-100 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
+                            <i className="fa-solid fa-up-right-from-square"></i> <span>Extend</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

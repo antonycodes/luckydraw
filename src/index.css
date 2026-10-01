@@ -4,6 +4,53 @@ body {
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
+.nav-reveal {
+    display: none;
+    width: 48px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: #2563eb;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+#topNav.nav-collapsed .nav-shell {
+    width: 58px;
+    height: 58px;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+}
+
+#topNav.nav-collapsed .nav-reveal {
+    display: flex;
+}
+
+#topNav.nav-collapsed .nav-menu-items {
+    display: none;
+}
+
+#topNav.nav-collapsed:hover .nav-shell,
+#topNav.nav-collapsed:focus-within .nav-shell {
+    width: auto;
+    height: auto;
+    padding: 6px;
+}
+
+#topNav.nav-collapsed:hover .nav-reveal,
+#topNav.nav-collapsed:focus-within .nav-reveal {
+    display: none;
+}
+
+#topNav.nav-collapsed:hover .nav-menu-items,
+#topNav.nav-collapsed:focus-within .nav-menu-items {
+    display: flex;
+}
+
 .glass-panel {
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);

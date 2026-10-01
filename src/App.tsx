@@ -1214,7 +1214,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <button onClick={exportWinners} className="px-4 py-2 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-green-200 font-semibold shadow-sm flex items-center gap-2">
                                 <i className="fa-solid fa-file-excel"></i> Xuất danh sách
                             </button>
-                            <button onClick={() => { if (confirm("Bạn có chắc?")) { setWinners([]); if (offline) updateOfflineState({ winners: [] }); addLog("CLEAR_HISTORY", "Xóa lịch sử trúng thưởng."); } }} className="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-red-100 flex items-center gap-2">
+                            <button onClick={() => { if (confirm("Bạn có chắc?")) { setWinners([]); saveAppWinners([]); addLog("CLEAR_HISTORY", "Xóa lịch sử trúng thưởng."); } }} className="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-red-100 flex items-center gap-2">
                                 <i className="fa-solid fa-trash-can"></i> Xóa lịch sử
                             </button>
                         </div>

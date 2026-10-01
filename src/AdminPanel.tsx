@@ -523,7 +523,7 @@ const AdminPanel = () => {
                                     <i className="fa-solid fa-file-excel"></i> Xuất CSV
                                 </button>
                                 {isAuthenticated && (
-                                    <button onClick={() => { if (confirm('Xóa hết lịch sử?')) setWinners([]); }} className="header-btn danger">
+                                    <button onClick={() => { if (confirm('Xóa hết lịch sử?')) { setWinners([]); saveWinners([]); } }} className="header-btn danger">
                                         <i className="fa-solid fa-trash"></i> Xóa
                                     </button>
                                 )}

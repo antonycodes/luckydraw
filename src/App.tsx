@@ -992,7 +992,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
 
             <div className="flex-grow flex items-center justify-center p-4 relative w-full h-full">
                 {/* Settings View */}
-                <div className={`w-full max-w-5xl h-[85vh] glass-panel rounded-3xl p-8 flex flex-col gap-6 relative z-10 animate-fade-in ${activeTab === 'settings' ? 'block' : 'hidden'}`}>
+                <div className={`w-full max-w-5xl h-[85vh] overflow-y-auto glass-panel rounded-3xl p-8 flex flex-col gap-6 relative z-10 animate-fade-in ${activeTab === 'settings' ? 'block' : 'hidden'}`}>
                     <div className="flex items-center justify-between border-b border-gray-200 pb-4">
                         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                             <i className="fa-solid fa-sliders text-blue-600"></i> Thiết lập sự kiện
@@ -1007,8 +1007,8 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full overflow-hidden">
-                        <div className="flex flex-col gap-4 h-full overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 min-h-0 overflow-visible">
+                        <div className="flex flex-col gap-4 h-auto overflow-visible pr-2">
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">1. Cấu hình chung:</label>
                                 <div className="flex items-center justify-between mb-3">
@@ -1043,7 +1043,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                 </div>
                             </div>                        </div>
 
-                        <div className="flex flex-col h-full">
+                        <div className="flex flex-col h-auto min-h-0">
                             <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">

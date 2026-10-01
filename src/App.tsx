@@ -11,6 +11,8 @@ const CONFETTI_COLORS = ['#ff3b3b', '#ffd166', '#ffffff', '#ff8080'];
 
 const SAMPLE_DATA_STR = "090****5678, Nguyễn Hoàng Long\n091****6789, Trịnh Thu Hà\n092****7890, Lý Quốc Bảo\n093****8901, Dương Minh Đức\n094****9012, Nguyễn Thảo Vy\n095****0123, Trần Gia Bảo\n096****1234, Lê Phương Anh\n097****2345, Phạm Đức Anh\n098****3456, Võ Khánh Linh\n099****4567, Huỳnh Nhật Minh\n090****6789, Đinh Quang Huy\n091****7890, Cao Bảo Ngọc\n092****8901, Mai Anh Tuấn\n093****9012, Tạ Ngọc Mai\n094****0123, Ngô Minh Khang\n095****1234, Phan Gia Linh\n096****2345, Đoàn Quốc Việt\n097****3456, Trương Khả Hân\n098****4567, Hồ Thanh Phong\n099****5678, Vũ Bảo Trâm";
 
+const PAGE_SIZE = 15;
+
 // --- Utils ---
 const triggerModalConfetti = () => {
     const duration = 3000;
@@ -36,6 +38,18 @@ const parseEditableCandidates = (text: string) => text.split(/\r?\n/).map(parseC
 const serializeCandidates = (candidates: any[]) => candidates
     .map(candidate => candidate.name ? `${candidate.id}, ${candidate.name}` : candidate.id)
     .join('\n');
+
+const getDuplicateIds = (candidates: any[]) => {
+    const counts = new Map<string, { id: string; count: number }>();
+    candidates.forEach(candidate => {
+        const id = String(candidate.id || '').trim();
+        const normalized = id.toLowerCase();
+        if (!normalized) return;
+        const existing = counts.get(normalized);
+        counts.set(normalized, { id: existing?.id || id, count: (existing?.count || 0) + 1 });
+    });
+    return Array.from(counts.values()).filter(item => item.count > 1);
+};
 
 const maskIdentifier = (id: string) => {
     if (!id || id.includes('*')) return id;
@@ -501,8 +515,9 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
-    const [inputText, setInputText] = useState(SAMPLE_DATA_STR);
+    const [inputText, setInputText] = useState('');
     const [showDataTable, setShowDataTable] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [displayPrevId, setDisplayPrevId] = useState("");
@@ -526,7 +541,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         if (offline) {
             const state = loadOfflineState();
             setWinners(state.winners);
-            setInputText(hasOfflineState() ? state.candidates : SAMPLE_DATA_STR);
+            setInputText(hasOfflineState() ? state.candidates : '');
             setBgImage(state.bgImage || DEFAULT_BG);
             setPrize(state.prize);
             setRemoveWinner(state.removeWinner);
@@ -896,7 +911,20 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         }
     };
 
+    const parsedCandidates = parseCandidates(inputText);
     const editableCandidates = parseEditableCandidates(inputText);
+    const duplicateIds = getDuplicateIds(parsedCandidates);
+    const totalPages = Math.max(1, Math.ceil(editableCandidates.length / PAGE_SIZE));
+    const remainingCount = removeWinner ? parsedCandidates.length : Math.max(parsedCandidates.length - winners.length, 0);
+    const pageStart = (currentPage - 1) * PAGE_SIZE;
+    const paginatedCandidates = editableCandidates
+        .map((candidate, index) => ({ candidate, index }))
+        .slice(pageStart, pageStart + PAGE_SIZE);
+
+    useEffect(() => {
+        setCurrentPage(page => Math.min(page, totalPages));
+    }, [totalPages]);
+
     const updateCandidateField = (index: number, field: 'id' | 'name', value: string) => {
         const rows = parseEditableCandidates(inputText);
         rows[index] = { ...rows[index], [field]: value };
@@ -918,7 +946,17 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     };
     const applyData = () => {
         setShowDataTable(true);
+        setCurrentPage(1);
         addLog("APPLY_DATA", `Đã chuyển ${parseCandidates(inputText).length} dòng sang bảng.`);
+    };
+    const resetCandidateData = () => {
+        if (!confirm('Đưa dữ liệu tham gia về trắng?')) return;
+        setInputText('');
+        setShowDataTable(false);
+        setCurrentPage(1);
+        if (offline) updateOfflineState({ candidates: '' });
+        else saveCandidates('');
+        addLog("RESET_DATA", "Đã đưa dữ liệu tham gia về trắng.");
     };
 
     return (
@@ -1004,7 +1042,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{parseCandidates(inputText).length}</span>
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{parsedCandidates.length}</span>
                                     <label className="flex items-center gap-1 text-xs text-gray-600 font-medium cursor-pointer" title="Giữ 3 ký tự đầu và 4 ký tự cuối">
                                         <input
                                             type="checkbox"
@@ -1027,6 +1065,32 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-blue-600 hover:underline font-semibold">Dán nhanh</button>}
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-2 mb-3 sm:grid-cols-4">
+                                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+                                    <div className="text-[10px] uppercase text-blue-600">Tham gia</div>
+                                    <div className="text-xl font-bold text-blue-900">{parsedCandidates.length}</div>
+                                </div>
+                                <div className="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2">
+                                    <div className="text-[10px] uppercase text-purple-600">Đã quay</div>
+                                    <div className="text-xl font-bold text-purple-900">{winners.length}</div>
+                                </div>
+                                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                                    <div className="text-[10px] uppercase text-emerald-600">Còn lại</div>
+                                    <div className="text-xl font-bold text-emerald-900">{remainingCount}</div>
+                                </div>
+                                <div className={`rounded-lg border px-3 py-2 ${duplicateIds.length ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                                    <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>ID trùng</div>
+                                    <div className={`text-xl font-bold ${duplicateIds.length ? 'text-red-900' : 'text-gray-700'}`}>{duplicateIds.length}</div>
+                                </div>
+                            </div>
+                            {duplicateIds.length > 0 && (
+                                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                                    <div className="font-semibold"><i className="fa-solid fa-triangle-exclamation mr-1"></i>Cảnh báo ID trùng</div>
+                                    <div className="mt-1 flex flex-wrap gap-2">
+                                        {duplicateIds.map(item => <span key={item.id} className="rounded bg-white px-2 py-1 font-mono">{item.id} ({item.count} dòng)</span>)}
+                                    </div>
+                                </div>
+                            )}
                             {showDataTable ? (
                                 <>
                             <div className="flex-grow min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">
@@ -1039,7 +1103,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {editableCandidates.map((candidate, index) => (
+                                        {paginatedCandidates.map(({ candidate, index }) => (
                                             <tr key={index} className="border-t border-gray-200">
                                                 <td className="p-2 align-top">
                                                     <input
@@ -1070,9 +1134,16 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     </tbody>
                                 </table>
                             </div>
+                            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500">
+                                <span>Trang {currentPage}/{totalPages} · Tối đa {PAGE_SIZE} hàng</span>
+                                <div className="flex gap-1">
+                                    <button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded border border-gray-300 bg-white px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40">Trước</button>
+                                    <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded border border-gray-300 bg-white px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40">Sau</button>
+                                </div>
+                            </div>
                             <p className="mt-2 text-[11px] text-gray-500">Bật “Che ID” sẽ giữ 3 ký tự đầu và 4 ký tự cuối. Dữ liệu gốc vẫn dùng để quay số.</p>
                             <div className="flex gap-2 mt-2">
-                                <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); if (offline) updateOfflineState({ candidates: '' }); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
                                 <button onClick={addCandidateRow} className="text-xs text-blue-600 hover:underline">Thêm dòng</button>
                                 <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                             </div>
@@ -1089,7 +1160,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     <p className="mt-2 text-[11px] text-gray-500">Dán trực tiếp từ Excel, mỗi dòng gồm ID và Họ và tên.</p>
                                     <div className="flex gap-2 mt-2">
                                         <button onClick={applyData} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Apply data</button>
-                                        <button onClick={() => { if (confirm('Xóa hết danh sách?')) { setInputText(''); if (offline) updateOfflineState({ candidates: '' }); addLog("CLEAR_DATA", "Xóa toàn bộ danh sách tham gia."); } }} className="text-xs text-red-500 hover:underline">Xóa tất cả</button>
+                                        <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
                                         <button onClick={() => { setInputText(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
                                     </div>
                                 </>

@@ -74,6 +74,9 @@ const maskIdentifier = (id: string) => {
     return `${id.slice(0, 3)}****${id.slice(-4)}`;
 };
 
+const maskDisplayIdentifier = (id: string, shouldMask: boolean) =>
+    shouldMask && id && !id.includes('READY') ? maskIdentifier(id) : id;
+
 const getSeamlessList = (candidates: any[]) => {
     if (candidates.length === 0) return [];
     const ids = candidates.map(c => c.id || c);
@@ -254,9 +257,9 @@ const Stage = ({
     displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
     showControls = true, onSpin, isSpinning, showModal = false, maskId = false
 }: any) => {
-    const visibleId = maskId ? maskIdentifier(displayId) : displayId;
-    const visiblePrevId = maskId ? maskIdentifier(displayPrevId) : displayPrevId;
-    const visibleNextId = maskId ? maskIdentifier(displayNextId) : displayNextId;
+    const visibleId = maskDisplayIdentifier(displayId, maskId);
+    const visiblePrevId = maskDisplayIdentifier(displayPrevId, maskId);
+    const visibleNextId = maskDisplayIdentifier(displayNextId, maskId);
 
     return (
         <div className={`w-full ${showControls ? 'glass-panel-stage rounded-3xl p-6 pb-35' : 'h-full'} flex flex-col items-center justify-center relative overflow-hidden min-h-[70vh] md:min-h-[90vh] ${showControls ? 'pb-35' : ''}`}>
@@ -1187,7 +1190,6 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                                 value={inputIds}
                                                 onChange={e => updateImportColumns(e.target.value, inputNames)}
                                                 className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 font-mono text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                                                placeholder="Mỗi dòng một ID\n20240001\n20240002"
                                                 spellCheck="false"
                                             />
                                         </label>
@@ -1197,7 +1199,6 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                                 value={inputNames}
                                                 onChange={e => updateImportColumns(inputIds, e.target.value)}
                                                 className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                                                placeholder="Mỗi dòng một họ và tên\nNguyễn Hoàng Long\nTrịnh Thu Hà"
                                                 spellCheck="false"
                                             />
                                         </label>

@@ -548,12 +548,12 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
-                <div className={`relative z-10 p-8 max-w-6xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
+                <div className={`relative z-10 -translate-y-5 p-8 max-w-6xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
                     <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-2' : 'gap-6'}`}>
-                        <div className="text-3xl md:text-5xl font-bold text-white uppercase tracking-[0.2em] display-text animate-fade-down">
+                        <div className="text-[2.44rem] md:text-[4.06rem] font-bold text-white uppercase tracking-[0.2em] display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-2xl md:text-4xl mb-1' : 'text-4xl md:text-6xl mb-4'}`}>
+                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-[1.95rem] md:text-[3.25rem] mb-1' : 'text-[3.25rem] md:text-[4.88rem] mb-4'}`}>
                             {modalWinners.length > 1 ? 'THÀNH VIÊN S-STUDENT' : prize.name}
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
@@ -1557,12 +1557,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             {/* Winner Modal */}
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }} onClick={handleCloseModal}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
-                <div className={`relative z-10 p-8 max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
+                <div className={`relative z-10 -translate-y-5 p-8 max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
                     <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-2' : 'gap-4'}`}>
-                        <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
+                        <div className="text-[1.95rem] md:text-[2.44rem] font-bold text-white uppercase tracking-widest display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-2xl md:text-4xl mb-1' : 'text-3xl md:text-5xl mb-2'}`}>
+                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-[1.95rem] md:text-[3.25rem] mb-1' : 'text-[2.44rem] md:text-[4.06rem] mb-2'}`}>
                             THÀNH VIÊN S-STUDENT
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (

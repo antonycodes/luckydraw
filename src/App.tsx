@@ -260,9 +260,9 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; pr
         <div className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 scale-75 blur-[0.5px] overflow-hidden">
             <div style={{ fontSize: 'clamp(1rem, 4vw, 2rem)' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
         </div>
-        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-[10px] overflow-hidden">
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center overflow-hidden" style={{ gap: `${ids.length * 10}px` }}>
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: 'clamp(2rem, 8vw, 3.5rem)' }} className="flex-1 min-h-0 w-full flex items-center justify-center">
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className="flex-1 min-h-0 w-full flex items-center justify-center">
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>

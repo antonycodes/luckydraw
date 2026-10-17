@@ -251,8 +251,8 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
         )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className="shrink-0 w-full flex items-center justify-center gap-[0.6em]">
-                    {showOrder && <span className="shrink-0 inline-flex h-[1.05em] w-[1.05em] items-center justify-center rounded-full border-[0.06em] border-white text-[0.48em] font-bold leading-none">{String(index + 1).padStart(2, '0')}</span>}
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-[0.6em] ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.1em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span className="shrink-0 inline-flex h-[1.05em] w-[1.05em] items-center justify-center rounded-full border-[0.06em] border-white bg-black/30 text-[0.48em] font-bold leading-none text-white shadow-[0_0_12px_rgba(255,255,255,0.65)]">{String(index + 1).padStart(2, '0')}</span>}
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>

@@ -1176,23 +1176,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
         if (offline) updateOfflineState({ candidates: next });
     };
-    const removeDuplicateCandidates = () => {
-        const seen = new Set<string>();
-        const next = serializeCandidates(parseEditableCandidates(inputText).filter(candidate => {
-            const id = String(candidate.id || '').trim().toLowerCase();
-            if (!id || seen.has(id)) return !id;
-            seen.add(id);
-            return true;
-        }));
-        syncImportData(next);
-        if (larkPendingData) setLarkPendingData(next);
-        setLarkConfirmed(false);
-        setShowDuplicateOnly(false);
-        setCurrentPage(1);
-        setLarkError('');
-        if (offline) updateOfflineState({ candidates: next });
-        else saveCandidates(next);
-    };
     const applyData = () => {
         const normalized = serializeCandidates(parseEditableCandidates(inputText).map(candidate => ({
             ...candidate,
@@ -1409,7 +1392,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>{showDuplicateOnly && duplicateIds.length ? 'Đang lọc ID trùng' : 'ID trùng'}</div>
                                     <div className={`text-xl font-bold ${duplicateIds.length ? 'text-red-900' : 'text-gray-700'}`}>{duplicateIds.length}</div>
                                 </button>
-                                {duplicateIds.length > 0 && <button type="button" onClick={removeDuplicateCandidates} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Xóa bản ghi trùng, giữ dòng đầu</button>}
                             </div>
                             {showDataTable ? (
                                 <>

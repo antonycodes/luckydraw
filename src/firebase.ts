@@ -1,5 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, off, runTransaction, get } from 'firebase/database';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getDatabase, ref, set, onValue, off, runTransaction, get, remove } from 'firebase/database';
+import { getAuth, onAuthStateChanged, sendEmailVerification, signInAnonymously, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 
 // ============================================================
 // 🔧 FIREBASE CONFIG — Replace with your own Firebase project
@@ -18,6 +19,8 @@ const firebaseConfig = {
 };
 
 let firebaseDb: ReturnType<typeof getDatabase> | null = null;
+let sessionAuthPromise: Promise<User> | null = null;
+export const ADMIN_EMAIL = 'nhanntl18402@gmail.com';
 let activeSessionId = '';
 
 export const normalizeSessionId = (value: string) => value.trim().toUpperCase();
@@ -25,24 +28,67 @@ export const isValidSessionId = (value: string) => /^[A-Z0-9]{6}$/.test(value);
 export const setActiveSession = (sessionId: string) => { activeSessionId = normalizeSessionId(sessionId); };
 const sessionPath = (name: string) => `sessions/${activeSessionId}/${name}`;
 
+const getFirebaseApp = () => getApps().length ? getApp() : initializeApp(firebaseConfig);
+export const ensureSessionAuth = () => sessionAuthPromise ||= (async () => {
+    const auth = getAuth(getFirebaseApp());
+    await auth.authStateReady();
+    return auth.currentUser || (await signInAnonymously(auth)).user;
+})().finally(() => { sessionAuthPromise = null; });
+
+export const signInAdmin = async (password: string) => {
+    const { user } = await signInWithEmailAndPassword(getAuth(getFirebaseApp()), ADMIN_EMAIL, password);
+    if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        throw new Error('email-not-verified');
+    }
+    return user;
+};
+
+export const signOutAdmin = () => signOut(getAuth(getFirebaseApp()));
+export const watchAdminAuth = (callback: (user: User | null) => void) => {
+    const auth = getAuth(getFirebaseApp());
+    return onAuthStateChanged(auth, user => callback(user?.email === ADMIN_EMAIL && user.emailVerified ? user : null));
+};
+
 export const createSession = async (sessionId: string) => {
     const code = normalizeSessionId(sessionId);
     if (!isValidSessionId(code)) return false;
+    const user = await ensureSessionAuth();
     const { db } = getFirebaseRefs();
     const result = await runTransaction(ref(db, `sessions/${code}/info`), current => current === null ? { createdAt: Date.now() } : undefined);
+    if (result.committed) await set(ref(db, `sessions/${code}/members/${user.uid}`), true);
     return result.committed;
 };
 
-export const sessionExists = async (sessionId: string) => {
+export const joinSession = async (sessionId: string) => {
     const code = normalizeSessionId(sessionId);
     if (!isValidSessionId(code)) return false;
-    const snapshot = await get(ref(getFirebaseRefs().db, `sessions/${code}/info`));
-    return snapshot.exists();
+    const user = await ensureSessionAuth();
+    const { db } = getFirebaseRefs();
+    const snapshot = await get(ref(db, `sessions/${code}/info`));
+    if (!snapshot.exists()) return false;
+    await set(ref(db, `sessions/${code}/members/${user.uid}`), true);
+    return true;
+};
+
+export const getAllSessions = async () => {
+    const snapshot = await get(ref(getFirebaseRefs().db, 'sessions'));
+    return Object.entries(snapshot.val() || {}).map(([code, data]: [string, any]) => ({
+        code,
+        createdAt: data.info?.createdAt || 0,
+        candidateCount: typeof data.candidates === 'string' ? data.candidates.split(/\r?\n/).filter(Boolean).length : 0,
+        winnerCount: data.winners ? Object.keys(data.winners).length : 0,
+    })).sort((a, b) => b.createdAt - a.createdAt);
+};
+
+export const deleteSession = (sessionId: string) => {
+    if (!isValidSessionId(normalizeSessionId(sessionId))) throw new Error('invalid-session-id');
+    return remove(ref(getFirebaseRefs().db, `sessions/${normalizeSessionId(sessionId)}`));
 };
 
 const getFirebaseRefs = () => {
     if (!firebaseDb) {
-        const app = initializeApp(firebaseConfig);
+        const app = getFirebaseApp();
         firebaseDb = getDatabase(app);
     }
     const db = firebaseDb;

@@ -1,12 +1,43 @@
 {
   "rules": {
     "lucky_draw": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null && auth.token.email == 'nhanntl18402@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'nhanntl18402@gmail.com' && auth.token.email_verified == true"
     },
     "sessions": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null && auth.token.email == 'nhanntl18402@gmail.com' && auth.token.email_verified == true",
+      ".write": "auth != null && auth.token.email == 'nhanntl18402@gmail.com' && auth.token.email_verified == true",
+      "$sessionId": {
+        "info": {
+          ".read": "auth != null",
+          ".write": "auth != null && !data.exists() && newData.exists()"
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && newData.val() == true && root.child('sessions').child($sessionId).child('info').exists()"
+          }
+        },
+        "state": {
+          ".read": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true"
+        },
+        "command": {
+          ".read": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true"
+        },
+        "candidates": {
+          ".read": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true"
+        },
+        "winners": {
+          ".read": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true"
+        },
+        "settings": {
+          ".read": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('members').child(auth.uid).val() == true"
+        }
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners, setActiveSession } from './firebase';
+import { ADMIN_EMAIL, sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners, setActiveSession, joinSession, signInAdmin, signOutAdmin, watchAdminAuth, getAllSessions, deleteSession } from './firebase';
 
 const parseCandidates = (text: string) => {
     return text.split(/\r?\n/).filter(line => line.trim() !== '').map(parseCandidateLine).filter(candidate => candidate.id || candidate.name);
@@ -36,10 +36,9 @@ const combineCandidateColumns = (ids: string, names: string) => {
 
 const PAGE_SIZE = 30;
 
-const ADMIN_PASSWORD = 'antony12345';
+type AdminSession = { code: string; createdAt: number; candidateCount: number; winnerCount: number };
 
-const AdminPanel = () => {
-    const sessionId = new URLSearchParams(window.location.search).get('session') || '';
+const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
     const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
@@ -50,7 +49,7 @@ const AdminPanel = () => {
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
     const [inputText, setInputText] = useState("090****5678, Nguyễn Hoàng Long\n091****6789, Trịnh Thu Hà\n092****7890, Lý Quốc Bảo\n093****8901, Dương Minh Đức\n094****9012, Nguyễn Thảo Vy\n095****0123, Trần Gia Bảo\n096****1234, Lê Phương Anh\n097****2345, Phạm Đức Anh\n098****3456, Võ Khánh Linh\n099****4567, Huỳnh Nhật Minh\n090****6789, Đinh Quang Huy\n091****7890, Cao Bảo Ngọc\n092****8901, Mai Anh Tuấn\n093****9012, Tạ Ngọc Mai\n094****0123, Ngô Minh Khang\n095****1234, Phan Gia Linh\n096****2345, Đoàn Quốc Việt\n097****3456, Trương Khả Hân\n098****4567, Hồ Thanh Phong\n099****5678, Vũ Bảo Trâm");
-    const [activeSection, setActiveSection] = useState('winners');
+    const [activeSection, setActiveSection] = useState(sessionId ? 'logs' : 'sessions');
     const [activeScene, setActiveScene] = useState<'spin' | 'prize' | 'winners'>('spin');
     const [spinDuration, setSpinDuration] = useState(10);
     const [connected, setConnected] = useState(false);
@@ -58,6 +57,10 @@ const AdminPanel = () => {
     const [passwordInput, setPasswordInput] = useState('');
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordError, setPasswordError] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [sessions, setSessions] = useState<AdminSession[]>([]);
+    const [sessionsLoading, setSessionsLoading] = useState(false);
+    const [sessionsError, setSessionsError] = useState('');
     const [inputIds, setInputIds] = useState(() => splitCandidateColumns(inputText).ids);
     const [inputNames, setInputNames] = useState(() => splitCandidateColumns(inputText).names);
     const [showDataTable, setShowDataTable] = useState(false);
@@ -74,18 +77,35 @@ const AdminPanel = () => {
     };
 
     useEffect(() => {
-        setActiveSession(sessionId);
-        // Listen to Firebase for cross-device sync
-        onWinnersChange((w) => setWinners(w));
-        onCandidatesChange((text) => syncImportData(text));
-        onStateChange((data) => {
-            if (data.bgImage !== undefined) setBgImage(data.bgImage);
-            if (data.prize !== undefined) setPrize(data.prize);
-        });
-        setConnected(true);
+        const unsubscribe = watchAdminAuth(user => setIsAuthenticated(!!user));
+        return unsubscribe;
+    }, []);
 
-        return () => detachListeners();
+    useEffect(() => {
+        if (!sessionId) return;
+        setActiveSession(sessionId);
+        let active = true;
+        joinSession(sessionId).then(exists => {
+            if (!active) return;
+            if (!exists) { setConnected(false); return; }
+            onWinnersChange((w) => setWinners(w));
+            onCandidatesChange((text) => syncImportData(text));
+            onStateChange((data) => {
+                if (data.bgImage !== undefined) setBgImage(data.bgImage);
+                if (data.prize !== undefined) setPrize(data.prize);
+            });
+            setConnected(true);
+        }).catch(() => { if (active) setConnected(false); });
+
+        return () => { active = false; detachListeners(); };
     }, [sessionId]);
+
+    useEffect(() => {
+        if (activeSection !== 'sessions' || !isAuthenticated) return;
+        setSessionsLoading(true);
+        setSessionsError('');
+        getAllSessions().then(setSessions).catch(() => setSessionsError('Không thể tải phiên. Kiểm tra quyền Firebase.')).finally(() => setSessionsLoading(false));
+    }, [activeSection, isAuthenticated]);
 
     useEffect(() => {
         if (customSound) {
@@ -378,21 +398,35 @@ const AdminPanel = () => {
         addLog('RESET_DATA', 'Đã đưa dữ liệu tham gia về trắng.');
     };
 
-    const handlePasswordSubmit = () => {
-        if (passwordInput === ADMIN_PASSWORD) {
-            setIsAuthenticated(true);
+    const handlePasswordSubmit = async () => {
+        setAuthError('');
+        try {
+            await signInAdmin(passwordInput);
             setShowPasswordModal(false);
             setPasswordError(false);
             setPasswordInput('');
-            setActiveSection('control');
-        } else {
+            setActiveSection(sessionId ? 'logs' : 'sessions');
+        } catch (error) {
             setPasswordError(true);
+            setAuthError(error instanceof Error && error.message === 'email-not-verified'
+                ? 'Firebase đã gửi email xác minh. Xác minh email rồi đăng nhập lại.'
+                : 'Đăng nhập thất bại. Kiểm tra email, mật khẩu và cấu hình Firebase Authentication.');
         }
     };
 
     const handleLogout = () => {
-        setIsAuthenticated(false);
-        setActiveSection('winners');
+        void signOutAdmin().then(() => window.location.assign('/admin')).catch(() => alert('Không thể đăng xuất khỏi Firebase.'));
+    };
+
+    const openSession = (code: string) => window.location.assign(`/?session=${encodeURIComponent(code)}`);
+    const removeSession = async (session: AdminSession) => {
+        if (!confirm(`Xóa toàn bộ dữ liệu phiên ${session.code}? Không thể hoàn tác.`)) return;
+        try {
+            await deleteSession(session.code);
+            setSessions(current => current.filter(item => item.code !== session.code));
+        } catch {
+            alert(`Không thể xóa phiên ${session.code}. Kiểm tra quyền Admin Firebase.`);
+        }
     };
 
     const requireAuth = (action: () => void) => {
@@ -402,9 +436,6 @@ const AdminPanel = () => {
         }
         action();
     };
-
-    // Sections that need auth to access
-    const protectedSections = ['control', 'settings', 'candidates'];
 
     return (
         <div className="admin-root">
@@ -416,16 +447,13 @@ const AdminPanel = () => {
 
                 <nav className="sidebar-nav">
                     {[
-                        { id: 'control', icon: 'fa-gamepad', label: 'Điều khiển', locked: true },
-                        { id: 'settings', icon: 'fa-sliders', label: 'Cấu hình', locked: true },
-                        { id: 'candidates', icon: 'fa-users', label: 'Danh sách', locked: true },
-                        { id: 'winners', icon: 'fa-trophy', label: 'Kết quả', locked: false },
-                        { id: 'logs', icon: 'fa-clipboard-list', label: 'Nhật ký', locked: false },
+                        { id: 'logs', icon: 'fa-clipboard-list', label: 'Nhật ký' },
+                        { id: 'sessions', icon: 'fa-layer-group', label: 'Quản lý phiên' },
                     ].map(item => (
                         <button
                             key={item.id}
                             onClick={() => {
-                                if (item.locked && !isAuthenticated) {
+                                if (item.id === 'sessions' && !isAuthenticated) {
                                     setShowPasswordModal(true);
                                 } else {
                                     setActiveSection(item.id);
@@ -435,7 +463,7 @@ const AdminPanel = () => {
                         >
                             <i className={`fa-solid ${item.icon}`}></i>
                             <span>{item.label}</span>
-                            {item.locked && !isAuthenticated && <i className="fa-solid fa-lock" style={{ fontSize: 10, marginLeft: 'auto', opacity: 0.4 }}></i>}
+                            {item.id === 'sessions' && !isAuthenticated && <i className="fa-solid fa-lock" style={{ fontSize: 10, marginLeft: 'auto', opacity: 0.4 }}></i>}
                         </button>
                     ))}
                 </nav>
@@ -477,17 +505,17 @@ const AdminPanel = () => {
                                 <i className="fa-solid fa-lock"></i>
                             </div>
                             <h3>Xác thực Admin</h3>
-                            <p>Nhập mật khẩu để truy cập chức năng quản trị</p>
-                            <form onSubmit={e => { e.preventDefault(); handlePasswordSubmit(); }}>
+                            <p>{ADMIN_EMAIL}</p>
+                            <form onSubmit={e => { e.preventDefault(); void handlePasswordSubmit(); }}>
                                 <input
                                     type="password"
                                     value={passwordInput}
                                     onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
                                     className={`admin-input password-input ${passwordError ? 'error' : ''}`}
-                                    placeholder="••••••••"
+                                    placeholder="Mật khẩu Firebase"
                                     autoFocus
                                 />
-                                {passwordError && <div className="password-error">Sai mật khẩu. Vui lòng thử lại.</div>}
+                                {passwordError && <div className="password-error">{authError}</div>}
                                 <button type="submit" className="password-submit">
                                     <span>Đăng nhập</span>
                                     <i className="fa-solid fa-arrow-right-to-bracket"></i>
@@ -497,33 +525,38 @@ const AdminPanel = () => {
                     </div>
                 )}
 
+                {activeSection === 'sessions' && (
+                    <div className="admin-content animate-fade-in">
+                        <div className="content-header">
+                            <h2><i className="fa-solid fa-layer-group"></i> Quản Lý Phiên</h2>
+                            {isAuthenticated && <button onClick={() => { setSessionsLoading(true); getAllSessions().then(setSessions).catch(() => setSessionsError('Không thể tải phiên.')).finally(() => setSessionsLoading(false)); }} className="header-btn success"><i className="fa-solid fa-rotate"></i> Tải lại</button>}
+                        </div>
+                        {!isAuthenticated ? <div className="empty-state"><i className="fa-solid fa-lock"></i><p>Đăng nhập Admin để xem và quản lý phiên.</p></div>
+                            : sessionsLoading ? <div className="empty-state"><p>Đang tải phiên…</p></div>
+                            : sessionsError ? <div className="empty-state"><p>{sessionsError}</p></div>
+                            : sessions.length === 0 ? <div className="empty-state"><i className="fa-solid fa-box-open"></i><p>Chưa có phiên nào</p></div>
+                            : <div className="sessions-list">
+                                {sessions.map(session => <div className="session-row" key={session.code}>
+                                    <div className="session-details">
+                                        <strong>{session.code}</strong>
+                                        <span>{session.createdAt ? new Date(session.createdAt).toLocaleString('vi-VN') : 'Không có ngày tạo'}</span>
+                                        <span>{session.candidateCount} người tham gia · {session.winnerCount} kết quả</span>
+                                    </div>
+                                    <div className="session-actions">
+                                        <button onClick={() => openSession(session.code)} className="header-btn success">Mở phiên</button>
+                                        <button onClick={() => void removeSession(session)} className="header-btn danger"><i className="fa-solid fa-trash"></i> Xóa</button>
+                                    </div>
+                                </div>)}
+                            </div>}
+                    </div>
+                )}
+
                 {/* Control Panel */}
                 {activeSection === 'control' && isAuthenticated && (
                     <div className="admin-content animate-fade-in">
                         <div className="content-header">
                             <h2><i className="fa-solid fa-gamepad"></i> Bảng Điều Khiển</h2>
                             <p>Quản lý quay số trực tiếp</p>
-                        </div>
-
-                        {/* Current Prize Card */}
-                        <div className="prize-hero-card">
-                            <div className="prize-hero-img">
-                                <img src={prize.image} alt="Prize" />
-                            </div>
-                            <div className="prize-hero-info">
-                                <span className="prize-hero-label">Đang quay giải</span>
-                                <h3 className="prize-hero-name">{prize.name}</h3>
-                                <div className="prize-hero-stats">
-                                    <div className="stat-item">
-                                        <i className="fa-solid fa-users"></i>
-                                        <span>{candidateCount} người tham gia</span>
-                                    </div>
-                                    <div className="stat-item">
-                                        <i className="fa-solid fa-trophy"></i>
-                                        <span>{winners.length} đã trúng</span>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Spin Duration */}

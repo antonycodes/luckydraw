@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import AdminPanel from './AdminPanel';
 import './admin.css';
-import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners, setActiveSession, createSession, sessionExists, normalizeSessionId, isValidSessionId } from './firebase';
+import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners, setActiveSession, createSession, joinSession, ensureSessionAuth, normalizeSessionId, isValidSessionId } from './firebase';
 import { hasOfflineState, loadOfflineState, sendOfflineCommand, subscribeOffline, updateOfflineState } from './offline';
 
 // --- Theme ---
@@ -474,15 +474,19 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
         }
 
         setActiveSession(sessionId);
-        onStateChange((data) => {
-            if (data.bgImage !== undefined) setBgImage(data.bgImage);
-            if (data.prize !== undefined) setPrize(data.prize);
-            if (data.maskId !== undefined) setMaskId(data.maskId);
-        });
-        onWinnersChange((w) => setWinners(w));
-        onCommandChange(handleCommand);
+        let active = true;
+        joinSession(sessionId).then(exists => {
+            if (!active || !exists) return;
+            onStateChange((data) => {
+                if (data.bgImage !== undefined) setBgImage(data.bgImage);
+                if (data.prize !== undefined) setPrize(data.prize);
+                if (data.maskId !== undefined) setMaskId(data.maskId);
+            });
+            onWinnersChange((w) => setWinners(w));
+            onCommandChange(handleCommand);
+        }).catch(() => undefined);
 
-        return () => detachListeners();
+        return () => { active = false; detachListeners(); };
     }, [offline, sessionId]);
 
     useEffect(() => {
@@ -645,11 +649,15 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
 
         setActiveSession(sessionId);
-        onWinnersChange((w) => setWinners(w));
-        onStateChange((data) => {
-            if (data.maskId !== undefined) setMaskId(data.maskId);
-        });
-        return () => detachListeners();
+        let active = true;
+        joinSession(sessionId).then(exists => {
+            if (!active || !exists) return;
+            onWinnersChange((w) => setWinners(w));
+            onStateChange((data) => {
+                if (data.maskId !== undefined) setMaskId(data.maskId);
+            });
+        }).catch(() => undefined);
+        return () => { active = false; detachListeners(); };
     }, [offline, sessionId]);
 
     const appCommand = (type: string, payload: any = null) => offline ? sendOfflineCommand(type, payload) : sendCommand(type, payload);
@@ -1470,7 +1478,7 @@ const SessionGate = ({ onEnter }: { onEnter: (code: string) => void }) => {
         if (!isValidSessionId(sessionId)) { setError('Mã phiên phải gồm đúng 6 chữ cái hoặc chữ số.'); return; }
         setBusy(true);
         try {
-            const success = mode === 'create' ? await createSession(sessionId) : await sessionExists(sessionId);
+            const success = mode === 'create' ? await createSession(sessionId) : await joinSession(sessionId);
             if (!success) { setError(mode === 'create' ? 'Mã đã tồn tại. Hãy chọn mã khác.' : 'Không tìm thấy phiên này.'); return; }
             onEnter(sessionId);
         } catch {
@@ -1503,8 +1511,20 @@ export default function App() {
     const isAdmin = pathname === '/admin' || query.get('admin') === 'true';
     const isOffline = query.get('offline') === 'true';
     const sessionId = normalizeSessionId(query.get('session') || '');
+    const [authStatus, setAuthStatus] = useState<'pending' | 'ready' | 'error'>(isOffline ? 'ready' : 'pending');
 
-    if (!isOffline && !isValidSessionId(sessionId)) return <SessionGate onEnter={code => {
+    useEffect(() => {
+        if (isOffline) { setAuthStatus('ready'); return; }
+        let active = true;
+        ensureSessionAuth().then(() => { if (active) setAuthStatus('ready'); }).catch(() => { if (active) setAuthStatus('error'); });
+        return () => { active = false; };
+    }, [isOffline]);
+
+    if (!isOffline && authStatus !== 'ready') return <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_50%_35%,#2a0202_0%,#120000_55%,#000000_100%)] p-6 text-center text-white">
+        <p>{authStatus === 'pending' ? 'Đang kết nối…' : 'Không thể kết nối dịch vụ xác thực Firebase. Vui lòng thử lại.'}</p>
+    </main>;
+
+    if (!isOffline && !isAdmin && !isValidSessionId(sessionId)) return <SessionGate onEnter={code => {
         query.set('session', code);
         window.history.replaceState({}, '', `${window.location.pathname}?${query.toString()}`);
         window.location.reload();
@@ -1515,7 +1535,7 @@ export default function App() {
     }
 
     if (isAdmin && !isOffline) {
-        return <AdminPanel />;
+        return <AdminPanel sessionId={isValidSessionId(sessionId) ? sessionId : ''} />;
     }
 
     return <ControlView offline={isOffline} sessionId={sessionId} />;

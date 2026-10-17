@@ -242,7 +242,7 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
     );
 };
 
-const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; prevId: string; nextId: string; isRolling: boolean }) => (
+const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: string[]; prevId: string; nextId: string; isRolling: boolean; showOrder: boolean }) => (
     <div className="relative h-auto min-h-[22rem] md:min-h-[36rem] w-full flex flex-col items-center justify-center select-none">
         {ids.length < 5 && (
             <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
@@ -251,7 +251,8 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; pr
         )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className="shrink-0 w-full flex items-center justify-center">
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className="shrink-0 w-full flex items-center justify-center gap-[0.6em]">
+                    {showOrder && <span className="shrink-0 inline-flex h-[1.05em] w-[1.05em] items-center justify-center rounded-full border-[0.06em] border-white text-[0.48em] font-bold leading-none">{String(index + 1).padStart(2, '0')}</span>}
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>
@@ -268,7 +269,7 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; pr
 
 const Stage = ({
     displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
-    showControls = true, onSpin, isSpinning, showModal = false, maskId = false, multiDisplayIds = null
+    showControls = true, onSpin, isSpinning, showModal = false, maskId = false, multiDisplayIds = null, showWinnerOrder = false
 }: any) => {
     const visibleId = maskDisplayIdentifier(displayId, maskId);
     const visiblePrevId = maskDisplayIdentifier(displayPrevId, maskId);
@@ -283,7 +284,7 @@ const Stage = ({
                     <div className="text-2xl md:text-4xl mt-4 min-h-12 invisible select-none pointer-events-none" aria-hidden="true">&nbsp;</div>
 
                     {(multiDisplayIds?.length ?? 0) > 1
-                        ? <MultiNumberReel ids={multiDisplayIds.map((id: string) => maskDisplayIdentifier(id, maskId))} prevId={visiblePrevId} nextId={visibleNextId} isRolling={isRolling} />
+                        ? <MultiNumberReel ids={multiDisplayIds.map((id: string) => maskDisplayIdentifier(id, maskId))} prevId={visiblePrevId} nextId={visibleNextId} isRolling={isRolling} showOrder={showWinnerOrder} />
                         : <NumberReel prevId={visiblePrevId} id={visibleId} nextId={visibleNextId} isRolling={isRolling} />}
 
                     <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold uppercase mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
@@ -336,6 +337,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
     const [winners, setWinners] = useState<any[]>([]);
     const [spotlightWinners, setSpotlightWinners] = useState<any[] | null>(null);
     const [maskId, setMaskId] = useState(false);
+    const [showWinnerOrder, setShowWinnerOrder] = useState(false);
     const spinIntervalRef = useRef<any>(null);
 
     useEffect(() => {
@@ -363,6 +365,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     break;
                 case 'SPIN_START': {
                     if (payload?.maskId !== undefined) setMaskId(payload.maskId);
+                    if (payload?.showWinnerOrder !== undefined) setShowWinnerOrder(payload.showWinnerOrder);
                     setOverlayState('none');
                     setIsRolling(true);
                     setShowName(false);
@@ -456,6 +459,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
             setPrize(state.prize);
             setWinners(state.winners);
             setMaskId(state.maskId);
+            setShowWinnerOrder(state.numberMultiWinners);
             return subscribeOffline((message) => {
                 if (message.type === 'state') {
                     const data = message.payload;
@@ -463,6 +467,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     if (data.prize !== undefined) setPrize(data.prize);
                     if (data.winners !== undefined) setWinners(data.winners);
                     if (data.maskId !== undefined) setMaskId(data.maskId);
+                    if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
                 }
                 if (message.type === 'command') handleCommand(message.payload);
             });
@@ -476,6 +481,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                 if (data.bgImage !== undefined) setBgImage(data.bgImage);
                 if (data.prize !== undefined) setPrize(data.prize);
                 if (data.maskId !== undefined) setMaskId(data.maskId);
+                if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
             });
             onWinnersChange((w) => setWinners(w));
             onCommandChange(handleCommand);
@@ -504,6 +510,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     showModal={showModal}
                     maskId={maskId}
                     multiDisplayIds={multiDisplayIds}
+                    showWinnerOrder={showWinnerOrder}
                 />
             )}
 
@@ -584,6 +591,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [maskId, setMaskId] = useState(false);
+    const [showWinnerOrder, setShowWinnerOrder] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
     const [winnerCount, setWinnerCount] = useState(1);
     const [spinDuration, setSpinDuration] = useState(10);
@@ -641,6 +649,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setPrize(state.prize);
             setRemoveWinner(state.removeWinner);
             setMaskId(state.maskId);
+            setShowWinnerOrder(state.numberMultiWinners);
             return subscribeOffline((message) => {
                 if (message.type !== 'state') return;
                 const data = message.payload;
@@ -650,6 +659,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                 if (data.prize !== undefined) setPrize(data.prize);
                 if (data.removeWinner !== undefined) setRemoveWinner(data.removeWinner);
                 if (data.maskId !== undefined) setMaskId(data.maskId);
+                if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
             });
         }
 
@@ -660,6 +670,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             onWinnersChange((w) => setWinners(w));
             onStateChange((data) => {
                 if (data.maskId !== undefined) setMaskId(data.maskId);
+                if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
             });
         }).catch(() => undefined);
         return () => { active = false; detachListeners(); };
@@ -855,7 +866,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
 
         // Send the spin command through the active sync channel.
         const duration = spinDuration * 1000;
-        appCommand('SPIN_START', { duration, candidates: eligibleCandidates, maskId, winnerCount: count });
+        appCommand('SPIN_START', { duration, candidates: eligibleCandidates, maskId, winnerCount: count, showWinnerOrder });
 
         if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
@@ -1273,6 +1284,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                         {[1, 2, 3, 4, 5].map(count => <button key={count} type="button" aria-pressed={winnerCount === count} onClick={() => setWinnerCount(count)} className={`rounded-full border py-2 text-sm font-semibold transition-colors ${winnerCount === count ? 'border-red-700 bg-red-700 text-white shadow-sm' : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'}`}>{count}</button>)}
                                     </div>
                                 </div>
+                <div className="mb-3 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                    <span className="text-sm text-gray-700">Đánh số thứ tự khi quay nhiều người</span>
+                    <input type="checkbox" checked={showWinnerOrder} onChange={e => { const value = e.target.checked; setShowWinnerOrder(value); if (offline) updateOfflineState({ numberMultiWinners: value }); else updateStateField('numberMultiWinners', value); }} className="h-4 w-4 accent-red-600" />
+                </div>
                                 <div className="mb-4 rounded-xl border border-red-100 bg-white px-3 py-3">
                                     <label htmlFor="spin-duration" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
                                         <i className="fa-regular fa-clock text-red-600"></i>
@@ -1496,6 +1511,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                         showModal={showModal}
                         maskId={maskId}
                         multiDisplayIds={multiDisplayIds}
+                        showWinnerOrder={showWinnerOrder}
                     />
                 </div>
 

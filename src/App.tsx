@@ -246,13 +246,16 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
     <div className="relative h-auto min-h-[22rem] md:min-h-[36rem] w-full flex flex-col items-center justify-center select-none">
         {ids.length < 5 && (
             <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-                <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
+                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span aria-hidden="true" />}
+                    <div style={{ fontSize: '70%' }} className={`text-center font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
+                </div>
             </div>
         )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[2em_minmax(0,1fr)]' : 'flex justify-center'}`}>
-                    {showOrder && <span className="display-text inline-flex h-[2em] w-[2em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.7em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span className="display-text inline-flex h-[1.4em] w-[1.4em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.49em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>
@@ -261,7 +264,10 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
         </div>
         {ids.length < 5 && (
             <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-                <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
+                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span aria-hidden="true" />}
+                    <div style={{ fontSize: '70%' }} className={`text-center font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
+                </div>
             </div>
         )}
     </div>
@@ -570,8 +576,8 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                             {modalWinners.length > 1 ? 'THÀNH VIÊN S-STUDENT' : prize.name}
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
-                            <div key={index} className={`w-full ${showWinnerOrder && modalWinners.length > 1 ? 'grid grid-cols-[31.5px_minmax(0,1fr)] items-center gap-x-4' : 'flex flex-col items-center'}`}>
-                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text row-span-2 inline-flex h-[31.5px] w-[31.5px] items-center justify-center rounded-full border-[2.1px] border-white text-[0.91875rem] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
+                            <div key={index} className={`w-full ${showWinnerOrder && modalWinners.length > 1 ? 'grid grid-cols-[22px_minmax(0,1fr)] items-center gap-x-4' : 'flex flex-col items-center'}`}>
+                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text row-span-2 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-white text-[0.643rem] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                                 <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl lg:text-7xl my-2'}`}>{winner.name || '(Không có tên)'}</FitText>
                                 <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
                                 {showWinnerOrder && modalWinners.length > 1 && index < modalWinners.length - 1 && <div className="col-span-2 mt-3 w-full border-t border-white/50 shadow-[0_0_8px_rgba(255,255,255,0.55)]" />}
@@ -1585,8 +1591,8 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                             THÀNH VIÊN S-STUDENT
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
-                            <div key={index} className={`w-full ${showWinnerOrder && modalWinners.length > 1 ? 'grid grid-cols-[31.5px_minmax(0,1fr)] items-center gap-x-4' : `flex flex-col items-center ${modalWinners.length > 1 ? 'gap-1' : ''}`}`}>
-                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text row-span-2 inline-flex h-[31.5px] w-[31.5px] items-center justify-center rounded-full border-[2.1px] border-white text-[0.91875rem] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
+                            <div key={index} className={`w-full ${showWinnerOrder && modalWinners.length > 1 ? 'grid grid-cols-[22px_minmax(0,1fr)] items-center gap-x-4' : `flex flex-col items-center ${modalWinners.length > 1 ? 'gap-1' : ''}`}`}>
+                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text row-span-2 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-white text-[0.643rem] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                                 <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl my-1'}`}>{winner.name || '(Không có tên)'}</FitText>
                                 <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
                                 {showWinnerOrder && modalWinners.length > 1 && index < modalWinners.length - 1 && <div className="col-span-2 mt-2 w-full border-t border-white/50 shadow-[0_0_8px_rgba(255,255,255,0.55)]" />}

@@ -33,16 +33,29 @@ const cellText = (value: unknown): string => {
   return '';
 };
 
+async function larkJson(response: Response, source: string) {
+  const contentType = response.headers.get('content-type') || 'không rõ Content-Type';
+  const body = await response.text();
+  try {
+    return JSON.parse(body) as Record<string, any>;
+  } catch {
+    const preview = body.slice(0, 120).replace(/[\r\n\t]+/g, ' ').trim();
+    throw new Error(`${source} trả phản hồi không phải JSON (HTTP ${response.status}; ${contentType}; ${preview || 'body rỗng'}).`);
+  }
+}
+
 async function readAllRecords(env: Env, token: string) {
   const records: Array<{ fields: Record<string, unknown> }> = [];
+  const appToken = env.LARK_APP_TOKEN.trim();
+  const tableId = env.LARK_TABLE_ID.trim();
   let pageToken = '';
   for (let page = 0; page < 20; page++) {
-    const url = new URL(`https://open.larksuite.com/open-apis/bitable/v1/apps/${encodeURIComponent(env.LARK_APP_TOKEN)}/tables/${encodeURIComponent(env.LARK_TABLE_ID)}/records`);
+    const url = new URL(`https://open.larksuite.com/open-apis/bitable/v1/apps/${encodeURIComponent(appToken)}/tables/${encodeURIComponent(tableId)}/records`);
     url.searchParams.set('page_size', '500');
     if (pageToken) url.searchParams.set('page_token', pageToken);
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    const payload = await response.json() as { code?: number; msg?: string; data?: { items?: Array<{ fields: Record<string, unknown> }>; has_more?: boolean; page_token?: string } };
-    if (!response.ok || payload.code !== 0) throw new Error(`Lark API lỗi (${payload.code ?? response.status}).`);
+    const payload = await larkJson(response, 'Lark records API') as { code?: number; msg?: string; data?: { items?: Array<{ fields: Record<string, unknown> }>; has_more?: boolean; page_token?: string } };
+    if (!response.ok || payload.code !== 0) throw new Error(`Lark API lỗi (${payload.code ?? response.status}): ${payload.msg || response.statusText || 'Không rõ nguyên nhân.'}`);
     const data = payload.data;
     if (!data) throw new Error('Lark API không trả dữ liệu.');
     records.push(...(data.items || []));
@@ -76,10 +89,10 @@ export default {
       const tokenResponse = await fetch('https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ app_id: env.APP_ID, app_secret: env['APP-SECRET'] }),
+        body: JSON.stringify({ app_id: env.APP_ID.trim(), app_secret: env['APP-SECRET'].trim() }),
       });
-      const tokenPayload = await tokenResponse.json() as { code?: number; tenant_access_token?: string };
-      if (!tokenResponse.ok || tokenPayload.code !== 0 || !tokenPayload.tenant_access_token) throw new Error('Không thể xác thực với Lark.');
+      const tokenPayload = await larkJson(tokenResponse, 'Lark auth API') as { code?: number; msg?: string; tenant_access_token?: string };
+      if (!tokenResponse.ok || tokenPayload.code !== 0 || !tokenPayload.tenant_access_token) throw new Error(`Lark xác thực thất bại (${tokenPayload.code ?? tokenResponse.status}): ${tokenPayload.msg || tokenResponse.statusText || 'Kiểm tra APP_ID và APP-SECRET.'}`);
       const records = await readAllRecords(env, tokenPayload.tenant_access_token);
       const matching = records.filter(({ fields }) => cellText(fields[FIELD_IDS.workshop]) === workshopId);
       return json({ workshopId, records: matching.map(({ fields }) => ({

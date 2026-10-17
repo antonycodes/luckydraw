@@ -737,7 +737,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             endpoint.searchParams.set('workshopId', sessionId.trim());
             currentConfig = JSON.stringify([endpoint.origin + endpoint.pathname, endpoint.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]);
         } catch { /* Invalid proxy URL keeps the imported data unconfirmed. */ }
-        if (!larkPendingData || inputText !== larkPendingData || larkLoadedConfig !== currentConfig) {
+        if (!larkPendingData || larkLoadedConfig !== currentConfig) {
             setLarkError('Danh sách đã thay đổi. Hãy tải lại từ Lark để xác nhận.');
             setLarkConfirmed(false);
             return;
@@ -1340,7 +1340,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <button type="button" onClick={() => void refreshLarkCandidates()} disabled={larkLoading || isSpinning} aria-label="Refresh danh sách từ Lark" title="Refresh danh sách từ Lark" className="rounded-full border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100 disabled:opacity-50">
                                         <i className={`fa-solid ${larkLoading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} aria-hidden="true"></i>
                                     </button>
-                                    {larkPendingData && <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || inputText !== larkPendingData || duplicateIds.length > 0} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>}
                                     {larkPendingData && <span className="text-xs font-medium text-sky-950">{parseCandidates(larkPendingData).length} người · Workshop {sessionId}</span>}
                                     {larkPendingData && <button type="button" onClick={() => { setLarkPendingData(''); setLarkLoadedConfig(''); setLarkConfirmed(false); setLarkError(''); }} className="text-xs font-semibold text-sky-900 underline">Dùng danh sách thủ công/CSV</button>}
                                 </div>
@@ -1441,6 +1440,11 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded border border-gray-300 bg-white px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40">Sau</button>
                                 </div>
                             </div>
+                            {larkPendingData && <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-sky-200 pt-3">
+                                {larkError && <p role="alert" className="mr-auto text-xs font-medium text-red-800">{larkError}</p>}
+                                {larkPendingData && <p className="mr-auto text-xs text-sky-950">{duplicateIds.length ? `Sửa hoặc xóa ${duplicateIds.length} ID trùng trước khi xác nhận.` : 'Kiểm tra danh sách lần cuối trước khi xác nhận.'}</p>}
+                                <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || duplicateIds.length > 0} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>
+                            </div>}
                             <p className="mt-2 text-[11px] text-gray-500">Bật “Che ID” sẽ giữ 3 ký tự đầu và 4 ký tự cuối. Dữ liệu gốc vẫn dùng để quay số.</p>
                             <div className="flex gap-2 mt-2">
                                 <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>

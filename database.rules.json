@@ -3,6 +3,10 @@
     "lucky_draw": {
       ".read": true,
       ".write": true
+    },
+    "sessions": {
+      ".read": true,
+      ".write": true
     }
   }
 }

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, off, DatabaseReference } from 'firebase/database';
+import { getDatabase, ref, set, onValue, off, runTransaction, get } from 'firebase/database';
 
 // ============================================================
 // 🔧 FIREBASE CONFIG — Replace with your own Firebase project
@@ -17,31 +17,43 @@ const firebaseConfig = {
     measurementId: "G-341Q5WTRBW"
 };
 
-type FirebaseRefs = {
-    db: ReturnType<typeof getDatabase>;
-    stateRef: DatabaseReference;
-    commandRef: DatabaseReference;
-    candidatesRef: DatabaseReference;
-    winnersRef: DatabaseReference;
-    settingsRef: DatabaseReference;
+let firebaseDb: ReturnType<typeof getDatabase> | null = null;
+let activeSessionId = '';
+
+export const normalizeSessionId = (value: string) => value.trim().toUpperCase();
+export const isValidSessionId = (value: string) => /^[A-Z0-9]{6}$/.test(value);
+export const setActiveSession = (sessionId: string) => { activeSessionId = normalizeSessionId(sessionId); };
+const sessionPath = (name: string) => `sessions/${activeSessionId}/${name}`;
+
+export const createSession = async (sessionId: string) => {
+    const code = normalizeSessionId(sessionId);
+    if (!isValidSessionId(code)) return false;
+    const { db } = getFirebaseRefs();
+    const result = await runTransaction(ref(db, `sessions/${code}/info`), current => current === null ? { createdAt: Date.now() } : undefined);
+    return result.committed;
 };
 
-let firebaseRefs: FirebaseRefs | null = null;
+export const sessionExists = async (sessionId: string) => {
+    const code = normalizeSessionId(sessionId);
+    if (!isValidSessionId(code)) return false;
+    const snapshot = await get(ref(getFirebaseRefs().db, `sessions/${code}/info`));
+    return snapshot.exists();
+};
 
-const getFirebaseRefs = (): FirebaseRefs => {
-    if (!firebaseRefs) {
+const getFirebaseRefs = () => {
+    if (!firebaseDb) {
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        firebaseRefs = {
-            db,
-            stateRef: ref(db, 'lucky_draw/state'),
-            commandRef: ref(db, 'lucky_draw/command'),
-            candidatesRef: ref(db, 'lucky_draw/candidates'),
-            winnersRef: ref(db, 'lucky_draw/winners'),
-            settingsRef: ref(db, 'lucky_draw/settings'),
-        };
+        firebaseDb = getDatabase(app);
     }
-    return firebaseRefs;
+    const db = firebaseDb;
+    return {
+        db,
+        stateRef: ref(db, sessionPath('state')),
+        commandRef: ref(db, sessionPath('command')),
+        candidatesRef: ref(db, sessionPath('candidates')),
+        winnersRef: ref(db, sessionPath('winners')),
+        settingsRef: ref(db, sessionPath('settings')),
+    };
 };
 
 // --- Write helpers ---
@@ -51,7 +63,7 @@ export const updateState = (data: Record<string, any>) => {
 
 export const updateStateField = (field: string, value: any) => {
     const { db } = getFirebaseRefs();
-    const fieldRef = ref(db, `lucky_draw/state/${field}`);
+    const fieldRef = ref(db, sessionPath(`state/${field}`));
     return set(fieldRef, value);
 };
 
@@ -130,10 +142,10 @@ export const onSettingsChange = (callback: (settings: any) => void) => {
 
 // --- Cleanup ---
 export const detachListeners = () => {
-    if (!firebaseRefs) return;
-    off(firebaseRefs.stateRef);
-    off(firebaseRefs.commandRef);
-    off(firebaseRefs.candidatesRef);
-    off(firebaseRefs.winnersRef);
-    off(firebaseRefs.settingsRef);
+    if (!firebaseDb) return;
+    off(ref(firebaseDb, sessionPath('state')));
+    off(ref(firebaseDb, sessionPath('command')));
+    off(ref(firebaseDb, sessionPath('candidates')));
+    off(ref(firebaseDb, sessionPath('winners')));
+    off(ref(firebaseDb, sessionPath('settings')));
 };

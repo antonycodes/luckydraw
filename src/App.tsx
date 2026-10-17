@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import AdminPanel from './AdminPanel';
 import './admin.css';
-import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners } from './firebase';
+import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners, setActiveSession, createSession, sessionExists, normalizeSessionId, isValidSessionId } from './firebase';
 import { hasOfflineState, loadOfflineState, sendOfflineCommand, subscribeOffline, updateOfflineState } from './offline';
 
 // --- Theme ---
@@ -323,7 +323,7 @@ const Stage = ({
     );
 };
 
-const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
+const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean; sessionId?: string }) => {
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
@@ -473,6 +473,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
             });
         }
 
+        setActiveSession(sessionId);
         onStateChange((data) => {
             if (data.bgImage !== undefined) setBgImage(data.bgImage);
             if (data.prize !== undefined) setPrize(data.prize);
@@ -482,7 +483,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
         onCommandChange(handleCommand);
 
         return () => detachListeners();
-    }, [offline]);
+    }, [offline, sessionId]);
 
     useEffect(() => {
         if (new URLSearchParams(window.location.search).get('fullscreen') !== 'true') return;
@@ -576,7 +577,7 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
     );
 };
 
-const ControlView = ({ offline = false }: { offline?: boolean }) => {
+const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; sessionId?: string }) => {
     const [activeTab, setActiveTab] = useState('settings');
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [winners, setWinners] = useState<any[]>([]);
@@ -643,12 +644,13 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             });
         }
 
+        setActiveSession(sessionId);
         onWinnersChange((w) => setWinners(w));
         onStateChange((data) => {
             if (data.maskId !== undefined) setMaskId(data.maskId);
         });
         return () => detachListeners();
-    }, [offline]);
+    }, [offline, sessionId]);
 
     const appCommand = (type: string, payload: any = null) => offline ? sendOfflineCommand(type, payload) : sendCommand(type, payload);
     const saveAppWinners = (next: any[]) => offline ? updateOfflineState({ winners: next }) : saveWinners(next);
@@ -911,7 +913,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         const height = window.screen.availHeight;
 
         const win = window.open(
-            `${window.location.origin}${window.location.pathname}?${offline ? 'offline=true&' : ''}projector=true`,
+            `${window.location.origin}${window.location.pathname}?${offline ? 'offline=true&' : `session=${encodeURIComponent(sessionId)}&`}projector=true`,
             '_blank',
             `popup=yes,width=${width},height=${height},top=0,left=0`
         );
@@ -1447,20 +1449,65 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     );
 };
 
+const SessionGate = ({ onEnter }: { onEnter: (code: string) => void }) => {
+    const [mode, setMode] = useState<'create' | 'join' | null>(null);
+    const [code, setCode] = useState('');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const submit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        const sessionId = normalizeSessionId(code);
+        setError('');
+        if (!isValidSessionId(sessionId)) { setError('Mã phiên phải gồm đúng 6 chữ cái hoặc chữ số.'); return; }
+        setBusy(true);
+        try {
+            const success = mode === 'create' ? await createSession(sessionId) : await sessionExists(sessionId);
+            if (!success) { setError(mode === 'create' ? 'Mã đã tồn tại. Hãy chọn mã khác.' : 'Không tìm thấy phiên này.'); return; }
+            onEnter(sessionId);
+        } catch {
+            setError('Không thể kết nối Firebase. Kiểm tra kết nối hoặc quyền truy cập.');
+        } finally { setBusy(false); }
+    };
+    return <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_50%_35%,#2a0202_0%,#120000_55%,#000000_100%)] p-6 text-white">
+        <section className="w-full max-w-md rounded-3xl border border-white/15 bg-black/40 p-8 text-white shadow-2xl backdrop-blur-md">
+            <h1 className="text-2xl font-black">Lucky Draw</h1>
+            <p className="mt-2 text-white/70">Tạo phiên riêng hoặc nhập mã để tham gia.</p>
+            {!mode ? <div className="mt-7 grid gap-3">
+                <button onClick={() => setMode('create')} className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white">Tạo phiên quay số</button>
+                <button onClick={() => setMode('join')} className="rounded-xl border border-white/30 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10">Tham gia phiên</button>
+            </div> : <form onSubmit={submit} className="mt-7 grid gap-4">
+                <label className="font-semibold">{mode === 'create' ? 'Đặt mã phiên 6 ký tự' : 'Nhập mã phiên'}
+                    <input autoFocus maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^a-z0-9]/gi, '').toUpperCase())} className="mt-2 w-full rounded-xl border border-white/30 bg-black/30 px-4 py-3 text-white uppercase tracking-[0.25em] outline-none placeholder:text-white/40 focus:border-red-500" placeholder="VD: VHWS26" />
+                </label>
+                {error && <p role="alert" className="text-sm font-medium text-red-700">{error}</p>}
+                <button disabled={busy} className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-60">{busy ? 'Đang xử lý…' : mode === 'create' ? 'Tạo và vào phiên' : 'Tham gia'}</button>
+                <button type="button" onClick={() => { setMode(null); setError(''); }} className="text-sm font-semibold text-white/70">Quay lại</button>
+            </form>}
+        </section>
+    </main>;
+};
+
 export default function App() {
     const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
     const query = new URLSearchParams(window.location.search);
     const isProjector = query.get('projector') === 'true';
     const isAdmin = pathname === '/admin' || query.get('admin') === 'true';
     const isOffline = query.get('offline') === 'true';
+    const sessionId = normalizeSessionId(query.get('session') || '');
+
+    if (!isOffline && !isValidSessionId(sessionId)) return <SessionGate onEnter={code => {
+        query.set('session', code);
+        window.history.replaceState({}, '', `${window.location.pathname}?${query.toString()}`);
+        window.location.reload();
+    }} />;
 
     if (isProjector) {
-        return <ProjectorView offline={isOffline} />;
+        return <ProjectorView offline={isOffline} sessionId={sessionId} />;
     }
 
     if (isAdmin && !isOffline) {
         return <AdminPanel />;
     }
 
-    return <ControlView offline={isOffline} />;
+    return <ControlView offline={isOffline} sessionId={sessionId} />;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners } from './firebase';
+import { sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners, setActiveSession } from './firebase';
 
 const parseCandidates = (text: string) => {
     return text.split(/\r?\n/).filter(line => line.trim() !== '').map(parseCandidateLine).filter(candidate => candidate.id || candidate.name);
@@ -39,6 +39,7 @@ const PAGE_SIZE = 30;
 const ADMIN_PASSWORD = 'antony12345';
 
 const AdminPanel = () => {
+    const sessionId = new URLSearchParams(window.location.search).get('session') || '';
     const [prize, setPrize] = useState({ name: "Samsung Galaxy Buds Core (ANC)", image: "https://res.cloudinary.com/dxikjdqqn/image/upload/v1775861881/BUDS_CORE_yxhucn.png" });
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
@@ -73,6 +74,7 @@ const AdminPanel = () => {
     };
 
     useEffect(() => {
+        setActiveSession(sessionId);
         // Listen to Firebase for cross-device sync
         onWinnersChange((w) => setWinners(w));
         onCandidatesChange((text) => syncImportData(text));
@@ -83,7 +85,7 @@ const AdminPanel = () => {
         setConnected(true);
 
         return () => detachListeners();
-    }, []);
+    }, [sessionId]);
 
     useEffect(() => {
         if (customSound) {
@@ -211,7 +213,7 @@ const AdminPanel = () => {
 
     const openProjectorWindow = () => {
         const projectorUrl = new URL(window.location.href);
-        projectorUrl.search = '?projector=true&fullscreen=true';
+        projectorUrl.search = `?session=${encodeURIComponent(sessionId)}&projector=true&fullscreen=true`;
         projectorUrl.hash = '';
         const currentScreen = window.screen as typeof window.screen & { availLeft: number; availTop: number };
         const projectorWindow = window.open(

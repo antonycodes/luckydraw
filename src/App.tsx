@@ -251,8 +251,8 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
         )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1em_minmax(0,1fr)]' : 'flex justify-center'}`}>
-                    {showOrder && <span className="display-text inline-flex h-[1em] w-[1em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.7em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[2em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span className="display-text inline-flex h-[2em] w-[2em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.7em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>
@@ -571,8 +571,10 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
                             <div key={index} className="w-full flex flex-col items-center">
+                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text mb-2 inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white text-sm font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                                 <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl lg:text-7xl my-2'}`}>{winner.name || '(Không có tên)'}</FitText>
                                 <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
+                                {showWinnerOrder && modalWinners.length > 1 && index < modalWinners.length - 1 && <div className="mt-3 w-3/4 border-t border-white/50 shadow-[0_0_8px_rgba(255,255,255,0.55)]" />}
                             </div>
                         ))}
                     </div>
@@ -1584,8 +1586,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
                             <div key={index} className={`w-full flex flex-col items-center ${modalWinners.length > 1 ? 'gap-1' : ''}`}>
+                                {showWinnerOrder && modalWinners.length > 1 && <span className="display-text mb-1 inline-flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white text-sm font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                                 <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl my-1'}`}>{winner.name || '(Không có tên)'}</FitText>
                                 <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
+                                {showWinnerOrder && modalWinners.length > 1 && index < modalWinners.length - 1 && <div className="mt-2 w-3/4 border-t border-white/50 shadow-[0_0_8px_rgba(255,255,255,0.55)]" />}
                             </div>
                         ))}
 

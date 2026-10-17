@@ -254,20 +254,20 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
 };
 
 const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; prevId: string; nextId: string; isRolling: boolean }) => (
-    <div className="relative h-[15rem] md:h-[28rem] w-full overflow-hidden flex flex-col items-center justify-center select-none">
-        <div className="h-[3rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 scale-75 blur-[0.5px] overflow-hidden">
+    <div className="relative h-[22rem] md:h-[36rem] w-full overflow-hidden flex flex-col items-center justify-center select-none">
+        <div className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 scale-75 blur-[0.5px] overflow-hidden">
             <div style={{ fontSize: getAdaptiveFontSize(prevId, 6.5, 8.5) }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
         </div>
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-[10px] overflow-hidden">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: `clamp(1rem, ${Math.min(7, 28 / ids.length)}vw, ${Math.max(1.1, 5 - ids.length * 0.25)}rem)` }} className="flex-1 min-h-0 w-full flex items-center justify-center">
+                <div key={index} style={{ fontSize: 'clamp(1rem, 5vw, 2.6rem)' }} className="flex-1 min-h-0 w-full flex items-center justify-center">
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>
                 </div>
             ))}
         </div>
-        <div className="h-[3rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 scale-75 blur-[0.5px] overflow-hidden">
+        <div className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 scale-75 blur-[0.5px] overflow-hidden">
             <div style={{ fontSize: getAdaptiveFontSize(nextId, 6.5, 8.5) }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
         </div>
     </div>
@@ -360,6 +360,13 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                 case 'BACK_TO_SPIN':
                     setOverlayState('none');
                     setShowModal(false);
+                    setDisplayId("ARE YOU READY ?");
+                    setMultiDisplayIds(null);
+                    setDisplayPrevId("");
+                    setDisplayNextId("");
+                    setDisplayName('');
+                    setShowName(false);
+                    setShowTimer(false);
                     break;
                 case 'SPIN_START': {
                     if (payload?.maskId !== undefined) setMaskId(payload.maskId);
@@ -440,7 +447,9 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
                     setMultiDisplayIds(null);
                     setDisplayPrevId("");
                     setDisplayNextId("");
+                    setDisplayName('');
                     setShowName(false);
+                    setShowTimer(false);
                     setShowModal(false);
                     break;
             }
@@ -546,17 +555,17 @@ const ProjectorView = ({ offline = false }: { offline?: boolean }) => {
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                 <div className={`relative z-10 p-8 max-w-6xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal ? 'scale-100' : 'scale-75'}`}>
-                    <div className="flex flex-col items-center justify-center gap-6">
+                    <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-2' : 'gap-6'}`}>
                         <div className="text-3xl md:text-5xl font-bold text-white uppercase tracking-[0.2em] display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <FitText className="text-4xl md:text-6xl font-extrabold text-white uppercase display-text mb-4 animate-fade-down">
+                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-2xl md:text-4xl mb-1' : 'text-4xl md:text-6xl mb-4'}`}>
                             {modalWinners.length > 1 ? 'THÀNH VIÊN S-STUDENT' : prize.name}
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
                             <div key={index} className="w-full flex flex-col items-center">
-                                <FitText className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-2">{winner.name || '(Không có tên)'}</FitText>
-                                <FitText className="text-3xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
+                                <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl lg:text-7xl my-2'}`}>{winner.name || '(Không có tên)'}</FitText>
+                                <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
                             </div>
                         ))}
                     </div>
@@ -575,8 +584,8 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const [isSpinning, setIsSpinning] = useState(false);
     const [maskId, setMaskId] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
-    const [drawMode, setDrawMode] = useState<'single' | 'multiple'>('single');
-    const [winnerCount, setWinnerCount] = useState(2);
+    const [winnerCount, setWinnerCount] = useState(1);
+    const [spinDuration, setSpinDuration] = useState(10);
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [customSound, setCustomSound] = useState<string | null>(null);
     const [soundName, setSoundName] = useState('Chọn file MP3/WAV...');
@@ -710,7 +719,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
     const startAutoSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
-        const count = drawMode === 'single' ? 1 : winnerCount;
+        const count = winnerCount;
         if (parsedCandidates.length === 0) {
             alert("Vui lòng nhập danh sách!");
             setActiveTab('settings');
@@ -741,13 +750,14 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 setTimerWidth('0%');
-                setTimerTransition(`width 10000ms linear`);
+                setTimerTransition(`width ${spinDuration * 1000}ms linear`);
             });
         });
         setShowModal(false);
 
         // Send the spin command through the active sync channel.
-        appCommand('SPIN_START', { duration: 10000, candidates: parsedCandidates, maskId, winnerCount: count });
+        const duration = spinDuration * 1000;
+        appCommand('SPIN_START', { duration, candidates: parsedCandidates, maskId, winnerCount: count });
 
         if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
@@ -781,7 +791,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                 spinIntervalRef.current = null;
             }
             finishSpin(parsedCandidates, count);
-        }, 10000);
+        }, duration);
     };
 
     const finishSpin = (parsedCandidates: any[], count: number) => {
@@ -863,6 +873,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         setMultiDisplayIds(null);
         setDisplayPrevId("");
         setDisplayNextId("");
+        setDisplayName('');
         setShowName(false);
         setShowModal(false);
         appCommand('RESET');
@@ -874,8 +885,10 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
         appCommand('CLOSE_MODAL');
         setTimeout(() => {
             setDisplayId("ARE YOU READY ?");
+            setMultiDisplayIds(null);
             setDisplayPrevId("");
             setDisplayNextId("");
+            setDisplayName('');
             setShowName(false);
             appCommand('RESET');
         }, 300);
@@ -1087,28 +1100,28 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {/* Top Nav */}
             <div id="topNav" className={`fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300 ${activeTab === 'stage' ? 'nav-collapsed' : ''}`}>
-                <div className="glass-panel nav-shell rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/50">
+                <div className="nav-shell rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/20 bg-black/85 backdrop-blur-xl">
                     {activeTab === 'stage' && (
                         <button type="button" className="nav-reveal" aria-label="Mở điều hướng">
                             <i className="fa-solid fa-ellipsis"></i>
                         </button>
                     )}
                     <div className="nav-menu-items flex items-center gap-1">
-                        {offline && <span className="px-3 py-2 text-xs font-bold text-green-700 bg-green-100 rounded-full">OFFLINE</span>}
-                        <button onClick={() => setActiveTab('settings')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        {offline && <span className="px-3 py-2 text-xs font-bold text-red-100 bg-red-900/70 border border-red-500/40 rounded-full">OFFLINE</span>}
+                        <button onClick={() => setActiveTab('settings')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'settings' ? 'bg-red-600 text-white shadow-md' : 'text-white/80 hover:bg-white/10'}`}>
                             <i className="fa-solid fa-gear"></i> <span>Cấu hình</span>
                         </button>
-                        <button onClick={() => setActiveTab('stage')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'stage' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        <button onClick={() => setActiveTab('stage')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'stage' ? 'bg-red-600 text-white shadow-md' : 'text-white/80 hover:bg-white/10'}`}>
                             <i className="fa-solid fa-tv"></i> <span>Sân khấu</span>
                         </button>
-                        <button onClick={() => setActiveTab('fame')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'fame' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        <button onClick={() => setActiveTab('fame')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'fame' ? 'bg-red-600 text-white shadow-md' : 'text-white/80 hover:bg-white/10'}`}>
                             <i className="fa-solid fa-gift"></i> <span>Kết quả</span>
                         </button>
-                        <div className="w-[1px] h-6 bg-gray-300 mx-1 self-center"></div>
-                        <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-gray-600 hover:bg-gray-100 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
+                        <div className="w-[1px] h-6 bg-white/25 mx-1 self-center"></div>
+                        <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-white/80 hover:bg-white/10 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
                             <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
                         </button>
-                        <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-purple-600 hover:bg-purple-100 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
+                        <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-red-400 hover:bg-red-500/15 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
                             <i className="fa-solid fa-up-right-from-square"></i> <span>Extend</span>
                         </button>
                     </div>
@@ -1120,13 +1133,13 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                 <div className={`w-full max-w-5xl h-[85vh] overflow-y-auto glass-panel rounded-3xl p-8 flex flex-col gap-6 relative z-10 animate-fade-in ${activeTab === 'settings' ? 'block' : 'hidden'}`}>
                     <div className="flex items-center justify-between border-b border-gray-200 pb-4">
                         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <i className="fa-solid fa-sliders text-blue-600"></i> Thiết lập sự kiện
+                            <i className="fa-solid fa-sliders text-red-600"></i> Thiết lập sự kiện
                         </h2>
                         <div className="flex gap-2">
-                            <button onClick={softReset} className="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded border border-red-300 transition-colors flex items-center gap-1 font-bold" title="Làm mới và xóa dữ liệu tham gia">
+                            <button onClick={softReset} className="text-xs px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-full border border-red-300 transition-colors flex items-center gap-1 font-bold" title="Làm mới và xóa dữ liệu tham gia">
                                 <i className="fa-solid fa-rotate"></i> Làm mới
                             </button>
-                            <button onClick={exportSystemLogs} className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-300 transition-colors flex items-center gap-1" title="Tải file nhật ký hệ thống">
+                            <button onClick={exportSystemLogs} className="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-300 transition-colors flex items-center gap-1" title="Tải file nhật ký hệ thống">
                                 <i className="fa-solid fa-file-code"></i> Log Hệ Thống
                             </button>
                         </div>
@@ -1140,23 +1153,26 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     <span className="text-sm text-gray-600">Loại bỏ người đã thắng?</span>
                                     <label className="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" checked={removeWinner} onChange={e => { const value = e.target.checked; setRemoveWinner(value); if (offline) updateOfflineState({ removeWinner: value }); }} className="sr-only peer" />
-                                        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
                                     </label>
                                 </div>
-                                <label htmlFor="draw-mode" className="block text-sm font-semibold text-gray-700 mb-2">Chế độ quay</label>
-                                <select id="draw-mode" value={drawMode} onChange={e => setDrawMode(e.target.value as 'single' | 'multiple')} className="w-full mb-3 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                                    <option value="single">Chọn 1 người</option>
-                                    <option value="multiple">Chọn nhiều người</option>
-                                </select>
-                                {drawMode === 'multiple' && <div className="mt-3 mb-3">
-                                    <label htmlFor="winner-count" className="block text-sm font-semibold text-gray-700 mb-2">Số người cần chọn</label>
-                                    <select id="winner-count" value={winnerCount} onChange={e => setWinnerCount(Number(e.target.value))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                                        {[1, 2, 3, 4, 5].map(count => <option key={count} value={count}>{count}</option>)}
-                                    </select>
-                                </div>}
+                                <div className="mb-3">
+                                    <span className="mb-2 block text-sm font-semibold text-gray-700">Số người cần chọn</span>
+                                    <div role="group" aria-label="Số người cần chọn" className="grid grid-cols-5 gap-2">
+                                        {[1, 2, 3, 4, 5].map(count => <button key={count} type="button" aria-pressed={winnerCount === count} onClick={() => setWinnerCount(count)} className={`rounded-full border py-2 text-sm font-semibold transition-colors ${winnerCount === count ? 'border-red-700 bg-red-700 text-white shadow-sm' : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'}`}>{count}</button>)}
+                                    </div>
+                                </div>
+                                <div className="mb-4 rounded-xl border border-red-100 bg-white px-3 py-3">
+                                    <label htmlFor="spin-duration" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                        <i className="fa-regular fa-clock text-red-600"></i>
+                                        Thời gian quay: <span className="text-red-600">{spinDuration} giây</span>
+                                    </label>
+                                    <input id="spin-duration" type="range" min="3" max="10" step="1" value={spinDuration} onChange={e => setSpinDuration(Number(e.target.value))} className="w-full accent-red-600" />
+                                    <div className="flex justify-between text-xs text-gray-500"><span>3 giây</span><span>10 giây</span></div>
+                                </div>
                                 <div className="relative mb-3">
                                     <input type="file" id="bgInput" accept="image/*" className="hidden" onChange={handleBgUpload} />
-                                    <label htmlFor="bgInput" className="cursor-pointer w-full flex items-center justify-center gap-2 bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 transition-all py-2 rounded-lg text-sm font-medium shadow-sm">
+                                    <label htmlFor="bgInput" className="cursor-pointer w-full flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 hover:border-red-300 hover:bg-red-50 transition-all py-2 rounded-full text-sm font-medium shadow-sm">
                                         <i className="fa-solid fa-image"></i> Đổi ảnh nền
                                     </label>
                                 </div>
@@ -1165,13 +1181,13 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Nhạc nền khi quay</label>
                                     <div className="flex items-center gap-2">
                                         <input type="file" id="soundInput" accept="audio/*" className="hidden" onChange={handleSoundUpload} />
-                                        <label htmlFor="soundInput" className="cursor-pointer flex-grow flex items-center justify-center gap-2 bg-white text-purple-600 border border-purple-300 hover:bg-purple-50 transition-all py-2 rounded-lg text-sm font-medium shadow-sm">
+                                        <label htmlFor="soundInput" className="cursor-pointer flex-grow flex items-center justify-center gap-2 bg-white text-red-600 border border-red-300 hover:bg-red-50 transition-all py-2 rounded-full text-sm font-medium shadow-sm">
                                             <i className="fa-solid fa-music"></i> <span>{soundName}</span>
                                         </label>
-                                        <button onClick={testSound} className="px-3 py-2 min-w-[44px] bg-white border border-gray-300 rounded-lg hover:bg-gray-50" title="Nghe thử / Dừng">
+                                        <button onClick={testSound} className="px-3 py-2 min-w-[44px] bg-white border border-gray-300 rounded-full hover:border-red-300 hover:bg-red-50" title="Nghe thử / Dừng">
                                             <i className="fa-solid fa-play"></i>
                                         </button>
-                                        <button onClick={clearSound} className="px-3 py-2 min-w-[44px] bg-white border border-gray-300 rounded-lg hover:bg-gray-50" title="Xóa nhạc (Về mặc định)">
+                                        <button onClick={clearSound} className="px-3 py-2 min-w-[44px] bg-white border border-gray-300 rounded-full hover:border-red-300 hover:bg-red-50" title="Xóa nhạc (Về mặc định)">
                                             <i className="fa-solid fa-trash"></i>
                                         </button>
                                     </div>
@@ -1183,7 +1199,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{parsedCandidates.length}</span>
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full font-bold">{parsedCandidates.length}</span>
                                     <label className="flex items-center gap-1 text-xs text-gray-600 font-medium cursor-pointer" title="Giữ 3 ký tự đầu và 4 ký tự cuối">
                                         <input
                                             type="checkbox"
@@ -1199,25 +1215,25 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     </label>
                                     <div className="relative group">
                                         <input type="file" id="csvInput" accept=".csv" className="hidden" onChange={handleCSVUpload} />
-                                        <label htmlFor="csvInput" className="cursor-pointer text-xs text-green-600 hover:underline font-semibold">
+                                        <label htmlFor="csvInput" className="cursor-pointer text-xs text-red-600 hover:underline font-semibold">
                                             <i className="fa-solid fa-upload"></i> CSV
                                         </label>
                                     </div>
-                                    {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-blue-600 hover:underline font-semibold">Import data</button>}
+                                    {showDataTable && <button type="button" onClick={() => setShowDataTable(false)} className="text-xs text-red-600 hover:underline font-semibold">Import data</button>}
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 mb-3 sm:grid-cols-4">
-                                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                                    <div className="text-[10px] uppercase text-blue-600">Tham gia</div>
-                                    <div className="text-xl font-bold text-blue-900">{parsedCandidates.length}</div>
+                                <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2">
+                                    <div className="text-[10px] uppercase text-red-600">Tham gia</div>
+                                    <div className="text-xl font-bold text-red-900">{parsedCandidates.length}</div>
                                 </div>
-                                <div className="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2">
-                                    <div className="text-[10px] uppercase text-purple-600">Đã quay</div>
-                                    <div className="text-xl font-bold text-purple-900">{winners.length}</div>
+                                <div className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2">
+                                    <div className="text-[10px] uppercase text-gray-600">Đã quay</div>
+                                    <div className="text-xl font-bold text-gray-900">{winners.length}</div>
                                 </div>
-                                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                                    <div className="text-[10px] uppercase text-emerald-600">Còn lại</div>
-                                    <div className="text-xl font-bold text-emerald-900">{remainingCount}</div>
+                                <div className="rounded-lg border border-red-100 bg-white px-3 py-2">
+                                    <div className="text-[10px] uppercase text-red-600">Còn lại</div>
+                                    <div className="text-xl font-bold text-gray-900">{remainingCount}</div>
                                 </div>
                                 <div className={`rounded-lg border px-3 py-2 ${duplicateIds.length ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
                                     <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>ID trùng</div>
@@ -1252,7 +1268,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                                         value={maskId ? maskIdentifier(candidate.id) : candidate.id}
                                                         readOnly={maskId}
                                                         onChange={e => updateCandidateField(index, 'id', e.target.value)}
-                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 font-mono text-xs text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 font-mono text-xs text-gray-700 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200"
                                                         placeholder="MSSV / SĐT / STT"
                                                     />
                                                 </td>
@@ -1261,7 +1277,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                                         aria-label={`Họ và tên dòng ${index + 1}`}
                                                         value={candidate.name}
                                                         onChange={e => updateCandidateField(index, 'name', e.target.value)}
-                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                                                        className="w-full min-w-0 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200"
                                                         placeholder="Nguyễn Văn A"
                                                     />
                                                 </td>
@@ -1285,8 +1301,8 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                             <p className="mt-2 text-[11px] text-gray-500">Bật “Che ID” sẽ giữ 3 ký tự đầu và 4 ký tự cuối. Dữ liệu gốc vẫn dùng để quay số.</p>
                             <div className="flex gap-2 mt-2">
                                 <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
-                                <button onClick={addCandidateRow} className="text-xs text-blue-600 hover:underline">Thêm dòng</button>
-                                <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                <button onClick={addCandidateRow} className="text-xs text-red-600 hover:underline">Thêm dòng</button>
+                                <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-red-600 hover:underline ml-auto">Mẫu</button>
                             </div>
                                 </>
                             ) : (
@@ -1297,7 +1313,7 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                             <textarea
                                                 value={inputIds}
                                                 onChange={e => updateImportColumns(e.target.value, inputNames)}
-                                                className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 font-mono text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                                className="lined-textarea h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 font-mono text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-red-500"
                                                 spellCheck="false"
                                             />
                                         </label>
@@ -1306,23 +1322,23 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                             <textarea
                                                 value={inputNames}
                                                 onChange={e => updateImportColumns(inputIds, e.target.value)}
-                                                className="h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                                                className="lined-textarea h-[min(38vh,360px)] min-h-[180px] w-full resize-none rounded-xl border border-gray-300 bg-white/50 p-3 text-sm text-gray-700 shadow-inner outline-none focus:border-transparent focus:ring-2 focus:ring-red-500"
                                                 spellCheck="false"
                                             />
                                         </label>
                                     </div>
                                     <p className="mt-2 text-[11px] text-gray-500">Dán riêng từng cột từ Excel. Dòng ID thứ nhất ghép với họ tên thứ nhất.</p>
                                     <div className="flex gap-2 mt-2">
-                                        <button onClick={applyData} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Apply data</button>
+                                        <button onClick={applyData} className="rounded-full bg-red-700 px-4 py-2 text-xs font-semibold text-white hover:bg-red-800">Apply data</button>
                                         <button onClick={resetCandidateData} className="text-xs text-red-500 hover:underline">Reset data</button>
-                                        <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-blue-500 hover:underline ml-auto">Mẫu</button>
+                                        <button onClick={() => { syncImportData(SAMPLE_DATA_STR); if (offline) updateOfflineState({ candidates: SAMPLE_DATA_STR }); addLog("ADD_SAMPLE", "Thêm dữ liệu mẫu."); }} className="text-xs text-red-600 hover:underline ml-auto">Mẫu</button>
                                     </div>
                                 </>
                             )}
                         </div>
                     </div>
                     <div className="mt-4 text-center">
-                        <button onClick={() => setActiveTab('stage')} className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105">
+                        <button onClick={() => setActiveTab('stage')} className="px-10 py-3 bg-gradient-to-r from-red-700 to-red-500 hover:from-red-800 hover:to-red-600 text-white font-bold rounded-full shadow-lg shadow-red-900/20 transition-all transform hover:scale-105">
                             <i className="fa-solid fa-check mr-2"></i> Hoàn tất & Vào Sân khấu
                         </button>
                     </div>
@@ -1405,17 +1421,17 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }} onClick={handleCloseModal}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                 <div className={`relative z-10 p-8 max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
-                    <div className="flex flex-col items-center justify-center gap-4">
+                    <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-1' : 'gap-4'}`}>
                         <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
-                        <FitText className="text-3xl md:text-5xl font-extrabold text-white uppercase display-text mb-2 animate-fade-down">
+                        <FitText className={`font-extrabold text-white uppercase display-text animate-fade-down ${modalWinners.length > 1 ? 'text-2xl md:text-4xl mb-1' : 'text-3xl md:text-5xl mb-2'}`}>
                             THÀNH VIÊN S-STUDENT
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
                             <div key={index} className="w-full flex flex-col items-center">
-                                <FitText className="text-4xl md:text-6xl font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight my-1">{winner.name || '(Không có tên)'}</FitText>
-                                <FitText className="text-3xl md:text-5xl font-bold text-white font-sans tracking-widest display-text">{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
+                                <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl my-1'}`}>{winner.name || '(Không có tên)'}</FitText>
+                                <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
                             </div>
                         ))}
 

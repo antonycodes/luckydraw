@@ -12,7 +12,7 @@ body {
     justify-content: center;
     border: 0;
     border-radius: 999px;
-    background: #2563eb;
+    background: #dc2626;
     color: white;
     font-size: 20px;
     cursor: pointer;
@@ -110,6 +110,14 @@ body {
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+}
+
+.lined-textarea {
+    line-height: 24px;
+    background-image: linear-gradient(to bottom, transparent 23px, rgba(148, 163, 184, 0.35) 23px, rgba(148, 163, 184, 0.35) 24px, transparent 24px);
+    background-repeat: no-repeat;
+    background-position: left 12px top 12px;
+    background-attachment: local;
 }
 
 .rolling { 

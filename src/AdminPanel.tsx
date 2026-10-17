@@ -43,8 +43,7 @@ const AdminPanel = () => {
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
-    const [drawMode, setDrawMode] = useState<'single' | 'multiple'>('single');
-    const [winnerCount, setWinnerCount] = useState(2);
+    const [winnerCount, setWinnerCount] = useState(1);
     const [removeWinner, setRemoveWinner] = useState(true);
     const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
@@ -122,7 +121,7 @@ const AdminPanel = () => {
     const startSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
-        const count = drawMode === 'single' ? 1 : winnerCount;
+        const count = winnerCount;
         if (parsedCandidates.length === 0) {
             alert("Vui lòng nhập danh sách!");
             return;
@@ -534,28 +533,23 @@ const AdminPanel = () => {
                             <input
                                 type="range"
                                 min="3"
-                                max="30"
+                                max="10"
                                 value={spinDuration}
                                 onChange={e => setSpinDuration(Number(e.target.value))}
                                 className="duration-slider"
                             />
                             <div className="slider-labels">
-                                <span>3s</span><span>15s</span><span>30s</span>
+                                <span>3s</span><span>10s</span>
                             </div>
                         </div>
 
                         <div className="control-card">
-                            <label className="control-label" htmlFor="admin-draw-mode">Chế độ quay</label>
-                            <select id="admin-draw-mode" value={drawMode} onChange={e => setDrawMode(e.target.value as 'single' | 'multiple')} className="admin-input">
-                                <option value="single">Chọn 1 người</option>
-                                <option value="multiple">Chọn nhiều người</option>
-                            </select>
-                            {drawMode === 'multiple' && <div className="field-group mb-3">
-                                <label htmlFor="admin-winner-count">Số người cần chọn</label>
-                                <select id="admin-winner-count" value={winnerCount} onChange={e => setWinnerCount(Number(e.target.value))} className="admin-input">
-                                    {[1, 2, 3, 4, 5].map(count => <option key={count} value={count}>{count}</option>)}
-                                </select>
-                            </div>}
+                            <div className="field-group">
+                                <span className="mb-2 block font-semibold text-gray-700">Số người cần chọn</span>
+                                <div role="group" aria-label="Số người cần chọn" className="grid grid-cols-5 gap-2">
+                                    {[1, 2, 3, 4, 5].map(count => <button key={count} type="button" aria-pressed={winnerCount === count} onClick={() => setWinnerCount(count)} className={`rounded-full border py-2 text-sm font-semibold transition-colors ${winnerCount === count ? 'border-red-700 bg-red-700 text-white shadow-sm' : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'}`}>{count}</button>)}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Main Actions */}

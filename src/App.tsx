@@ -603,6 +603,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const [showDataTable, setShowDataTable] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [showDuplicateOnly, setShowDuplicateOnly] = useState(false);
+    const [navExpanded, setNavExpanded] = useState(false);
     const [larkAccessKey, setLarkAccessKey] = useState('');
     const [larkIdField, setLarkIdField] = useState<'phone' | 'studentId'>('studentId');
     const [larkLoading, setLarkLoading] = useState(false);
@@ -625,11 +626,11 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const [showModal, setShowModal] = useState(false);
     const [modalData, setModalData] = useState({ id: '', name: '' });
     const [modalWinners, setModalWinners] = useState<any[]>([]);
-    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
     const spinIntervalRef = useRef<any>(null);
+    const navCollapseTimerRef = useRef<number | null>(null);
 
     const syncImportData = (text: string) => {
         const columns = splitCandidateColumns(text);
@@ -755,12 +756,8 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
     }, [customSound]);
 
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    useEffect(() => () => {
+        if (navCollapseTimerRef.current !== null) window.clearTimeout(navCollapseTimerRef.current);
     }, []);
 
     const addLog = (action: string, detail: string) => {
@@ -1004,42 +1001,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }, 300);
     };
 
-    const toggleFullScreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                alert(`Lỗi khi bật toàn màn hình: ${err.message}`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        }
-    };
-
-    const openProjectorWindow = () => {
-        const width = window.screen.availWidth;
-        const height = window.screen.availHeight;
-
-        const win = window.open(
-            `${window.location.origin}${window.location.pathname}?${offline ? 'offline=true&' : `session=${encodeURIComponent(sessionId)}&`}projector=true`,
-            '_blank',
-            `popup=yes,width=${width},height=${height},top=0,left=0`
-        );
-
-        if (!win) {
-            alert("⚠️ Cửa sổ bị chặn! Hãy cho phép pop-up.");
-            return;
-        }
-        win.focus();
-
-        if (offline) {
-            updateOfflineState({ bgImage, prize, maskId });
-        } else {
-            updateStateField('bgImage', bgImage);
-            updateStateField('prize', prize);
-            updateStateField('maskId', maskId);
-        }
-    };
     const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
@@ -1229,15 +1190,27 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         url.searchParams.delete('session');
         window.location.assign(`${url.pathname}${url.search}`);
     };
+    const expandNav = () => {
+        if (navCollapseTimerRef.current !== null) window.clearTimeout(navCollapseTimerRef.current);
+        navCollapseTimerRef.current = null;
+        setNavExpanded(true);
+    };
+    const delayNavCollapse = () => {
+        if (navCollapseTimerRef.current !== null) window.clearTimeout(navCollapseTimerRef.current);
+        navCollapseTimerRef.current = window.setTimeout(() => {
+            setNavExpanded(false);
+            navCollapseTimerRef.current = null;
+        }, 2000);
+    };
 
     return (
         <div className="relative flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
             <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
             {/* Top Nav */}
-            <div id="topNav" className={`fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300 ${activeTab === 'stage' ? 'nav-collapsed' : ''}`}>
+            <div id="topNav" onPointerEnter={expandNav} onPointerLeave={delayNavCollapse} onFocusCapture={expandNav} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) delayNavCollapse(); }} className={`fixed top-5 md:top-auto bottom-auto md:bottom-5 right-5 z-[100] opacity-80 hover:opacity-100 transform scale-95 hover:scale-100 hover:-translate-y-1 transition-all duration-300 ${activeTab === 'stage' ? `nav-collapsed ${navExpanded ? 'nav-expanded' : ''}` : ''}`}>
                 <div className="nav-shell rounded-full p-1.5 flex gap-1 shadow-2xl border border-white/20 bg-black/85 backdrop-blur-xl">
                     {activeTab === 'stage' && (
-                        <button type="button" className="nav-reveal" aria-label="Mở điều hướng">
+                        <button type="button" className="nav-reveal" aria-label="Mở điều hướng" onClick={expandNav}>
                             <i className="fa-solid fa-ellipsis"></i>
                         </button>
                     )}
@@ -1251,13 +1224,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                         </button>
                         <button onClick={() => setActiveTab('fame')} className={`nav-btn rounded-full font-bold transition-all flex items-center gap-2 px-4 py-2 text-sm ${activeTab === 'fame' ? 'bg-red-600 text-white shadow-md' : 'text-white/80 hover:bg-white/10'}`}>
                             <i className="fa-solid fa-gift"></i> <span>Kết quả</span>
-                        </button>
-                        <div className="w-[1px] h-6 bg-white/25 mx-1 self-center"></div>
-                        <button onClick={toggleFullScreen} className="nav-btn rounded-full font-bold transition-all text-white/80 hover:bg-white/10 flex items-center gap-2 px-4 py-2 text-sm" title="F11">
-                            <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
-                        </button>
-                        <button onClick={openProjectorWindow} className="nav-btn rounded-full font-bold transition-all text-red-400 hover:bg-red-500/15 flex items-center gap-2 px-4 py-2 text-sm" title="Mở màn hình chiếu (Extend)">
-                            <i className="fa-solid fa-up-right-from-square"></i> <span>Extend</span>
                         </button>
                     </div>
                 </div>
@@ -1583,7 +1549,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             <div className={`fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-500 bg-cover bg-center ${showModal && activeTab === 'stage' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ backgroundImage: bgImage }} onClick={handleCloseModal}>
                 <div className="absolute inset-0 bg-cover bg-center pointer-events-none mix-blend-screen" style={{ backgroundImage: "url('/particles.png')" }}></div>
                 <div className={`relative z-10 p-8 max-w-4xl w-[90%] max-h-[90vh] overflow-y-auto text-center transform transition-transform duration-500 ${showModal && activeTab === 'stage' ? 'scale-100' : 'scale-75'}`} onClick={e => e.stopPropagation()}>
-                    <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-1' : 'gap-4'}`}>
+                    <div className={`flex flex-col items-center justify-center ${modalWinners.length > 1 ? 'gap-2' : 'gap-4'}`}>
                         <div className="text-2xl md:text-3xl font-bold text-white uppercase tracking-widest display-text animate-fade-down">
                             Xin chúc mừng
                         </div>
@@ -1591,7 +1557,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                             THÀNH VIÊN S-STUDENT
                         </FitText>
                         {(modalWinners.length > 1 ? modalWinners : [modalData]).map((winner, index) => (
-                            <div key={index} className="w-full flex flex-col items-center">
+                            <div key={index} className={`w-full flex flex-col items-center ${modalWinners.length > 1 ? 'gap-1' : ''}`}>
                                 <FitText className={`font-extrabold text-yellow-300 neon-text-gold uppercase leading-tight ${modalWinners.length > 1 ? 'text-2xl md:text-4xl my-0' : 'text-4xl md:text-6xl my-1'}`}>{winner.name || '(Không có tên)'}</FitText>
                                 <FitText className={`font-bold text-white font-sans tracking-widest display-text ${modalWinners.length > 1 ? 'text-xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>{maskId ? maskIdentifier(winner.id) : winner.id}</FitText>
                             </div>

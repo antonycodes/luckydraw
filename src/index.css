@@ -34,20 +34,17 @@ body {
     display: none;
 }
 
-#topNav.nav-collapsed:hover .nav-shell,
-#topNav.nav-collapsed:focus-within .nav-shell {
+#topNav.nav-collapsed.nav-expanded .nav-shell {
     width: auto;
     height: auto;
     padding: 6px;
 }
 
-#topNav.nav-collapsed:hover .nav-reveal,
-#topNav.nav-collapsed:focus-within .nav-reveal {
+#topNav.nav-collapsed.nav-expanded .nav-reveal {
     display: none;
 }
 
-#topNav.nav-collapsed:hover .nav-menu-items,
-#topNav.nav-collapsed:focus-within .nav-menu-items {
+#topNav.nav-collapsed.nav-expanded .nav-menu-items {
     display: flex;
 }
 

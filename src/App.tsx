@@ -602,6 +602,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const [inputNames, setInputNames] = useState('');
     const [showDataTable, setShowDataTable] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [showDuplicateOnly, setShowDuplicateOnly] = useState(false);
     const [larkAccessKey, setLarkAccessKey] = useState('');
     const [larkIdField, setLarkIdField] = useState<'phone' | 'studentId'>('studentId');
     const [larkLoading, setLarkLoading] = useState(false);
@@ -701,6 +702,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         setLarkLoading(true);
         setLarkError('');
         setLarkConfirmed(false);
+        setShowDuplicateOnly(false);
         try {
             const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${larkAccessKey.trim()}` } });
             if (!response.ok) throw new Error(`Proxy trả về lỗi ${response.status}.`);
@@ -1165,18 +1167,23 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const duplicateRowIndexes = new Set(duplicateIds.flatMap(item => item.rows.map(row => row.line - 1)));
     const larkCandidateIds = new Set(parsedCandidates.map(candidate => String(candidate.id || '').trim().toLowerCase()).filter(Boolean));
     const larkWinnerIds = new Set(winners.map(winner => String(winner.id || '').trim().toLowerCase()));
-    const totalPages = Math.max(1, Math.ceil(editableCandidates.length / PAGE_SIZE));
+    const visibleCandidates = editableCandidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(({ index }) => !showDuplicateOnly || !duplicateIds.length || duplicateRowIndexes.has(index));
+    const totalPages = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
     const remainingCount = larkConfirmed
         ? Array.from(larkCandidateIds).filter(id => !larkWinnerIds.has(id)).length
         : removeWinner ? parsedCandidates.length : Math.max(parsedCandidates.length - winners.length, 0);
     const pageStart = (currentPage - 1) * PAGE_SIZE;
-    const paginatedCandidates = editableCandidates
-        .map((candidate, index) => ({ candidate, index }))
-        .slice(pageStart, pageStart + PAGE_SIZE);
+    const paginatedCandidates = visibleCandidates.slice(pageStart, pageStart + PAGE_SIZE);
 
     useEffect(() => {
         setCurrentPage(page => Math.min(page, totalPages));
     }, [totalPages]);
+
+    useEffect(() => {
+        if (!duplicateIds.length) setShowDuplicateOnly(false);
+    }, [duplicateIds.length]);
 
     const updateCandidateField = (index: number, field: 'id' | 'name', value: string) => {
         const rows = parseEditableCandidates(inputText);
@@ -1392,23 +1399,11 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <div className="text-[10px] uppercase text-red-600">Còn lại</div>
                                     <div className="text-xl font-bold text-gray-900">{remainingCount}</div>
                                 </div>
-                                <div className={`rounded-lg border px-3 py-2 ${duplicateIds.length ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-                                    <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>ID trùng</div>
+                                <button type="button" onClick={() => { setShowDuplicateOnly(value => !value); setCurrentPage(1); }} disabled={!duplicateIds.length} aria-pressed={showDuplicateOnly && duplicateIds.length > 0} title={showDuplicateOnly ? 'Hiện toàn bộ danh sách' : 'Chỉ hiện các dòng có ID trùng'} className={`rounded-lg border px-3 py-2 text-left disabled:cursor-default ${duplicateIds.length ? 'cursor-pointer border-red-200 bg-red-50 hover:bg-red-100' : 'border-gray-200 bg-gray-50'}`}>
+                                    <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>{showDuplicateOnly && duplicateIds.length ? 'Đang lọc ID trùng' : 'ID trùng'}</div>
                                     <div className={`text-xl font-bold ${duplicateIds.length ? 'text-red-900' : 'text-gray-700'}`}>{duplicateIds.length}</div>
-                                </div>
+                                </button>
                             </div>
-                            {duplicateIds.length > 0 && (
-                                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-                                    <div className="font-semibold"><i className="fa-solid fa-triangle-exclamation mr-1"></i>ID trùng · các dòng được giữ khi import</div>
-                                    <div className="mt-1 space-y-1">
-                                        {duplicateIds.map(item => <div key={item.id}>
-                                            <span className="font-mono">{maskDisplayIdentifier(item.id, maskId)}</span>
-                                            <span> — {item.rows.map(row => `dòng ${row.line}${row.name ? ` (${row.name})` : ''}`).join(', ')}</span>
-                                        </div>)}
-                                    </div>
-                                    {larkPendingData && <p className="mt-1">Các dòng trùng vẫn có trong danh sách. Khi quay từ Lark, mỗi ID chỉ có một lượt và chỉ có thể trúng một lần trong phiên.</p>}
-                                </div>
-                            )}
                             {showDataTable ? (
                                 <>
                             <div className="h-[min(55vh,520px)] min-h-0 overflow-y-auto rounded-xl border border-gray-300 bg-white/50 shadow-inner">

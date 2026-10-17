@@ -24,7 +24,7 @@ export const ADMIN_EMAIL = 'nhanntl18402@gmail.com';
 let activeSessionId = '';
 
 export const normalizeSessionId = (value: string) => value.trim().toUpperCase();
-export const isValidSessionId = (value: string) => /^[A-Z0-9]{6}$/.test(value);
+export const isValidSessionId = (value: string) => value.length <= 768 && /^[A-Z0-9]+$/.test(value);
 export const setActiveSession = (sessionId: string) => { activeSessionId = normalizeSessionId(sessionId); };
 const sessionPath = (name: string) => `sessions/${activeSessionId}/${name}`;
 

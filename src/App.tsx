@@ -1475,7 +1475,7 @@ const SessionGate = ({ onEnter }: { onEnter: (code: string) => void }) => {
         event.preventDefault();
         const sessionId = normalizeSessionId(code);
         setError('');
-        if (!isValidSessionId(sessionId)) { setError('Mã phiên phải gồm đúng 6 chữ cái hoặc chữ số.'); return; }
+        if (!isValidSessionId(sessionId)) { setError('Mã phiên chỉ gồm chữ cái hoặc chữ số, tối đa 768 ký tự.'); return; }
         setBusy(true);
         try {
             const success = mode === 'create' ? await createSession(sessionId) : await joinSession(sessionId);
@@ -1493,8 +1493,8 @@ const SessionGate = ({ onEnter }: { onEnter: (code: string) => void }) => {
                 <button onClick={() => setMode('create')} className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white">Tạo phiên quay số</button>
                 <button onClick={() => setMode('join')} className="rounded-xl border border-white/30 bg-white/5 px-5 py-3 font-bold text-white hover:bg-white/10">Tham gia phiên</button>
             </div> : <form onSubmit={submit} className="mt-7 grid gap-4">
-                <label className="font-semibold">{mode === 'create' ? 'Đặt mã phiên 6 ký tự' : 'Nhập mã phiên'}
-                    <input autoFocus maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^a-z0-9]/gi, '').toUpperCase())} className="mt-2 w-full rounded-xl border border-white/30 bg-black/30 px-4 py-3 text-white uppercase tracking-[0.25em] outline-none placeholder:text-white/40 focus:border-red-500" placeholder="VD: VHWS26" />
+                <label className="font-semibold">{mode === 'create' ? 'Đặt mã phiên' : 'Nhập mã phiên'}
+                    <input autoFocus value={code} onChange={event => setCode(event.target.value.replace(/[^a-z0-9]/gi, '').toUpperCase())} className="mt-2 w-full rounded-xl border border-white/30 bg-black/30 px-4 py-3 text-white uppercase tracking-[0.25em] outline-none placeholder:text-white/40 focus:border-red-500" placeholder="VD: VHWS26" />
                 </label>
                 {error && <p role="alert" className="text-sm font-medium text-red-700">{error}</p>}
                 <button disabled={busy} className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-60">{busy ? 'Đang xử lý…' : mode === 'create' ? 'Tạo và vào phiên' : 'Tham gia'}</button>

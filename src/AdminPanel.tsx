@@ -383,7 +383,12 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
     };
 
     const applyData = () => {
-        saveCandidates(inputText);
+        const normalized = serializeCandidates(parseEditableCandidates(inputText).map(candidate => ({
+            ...candidate,
+            name: candidate.name.toLocaleUpperCase('vi-VN'),
+        })));
+        syncImportData(normalized);
+        saveCandidates(normalized);
         setShowDataTable(true);
         setCurrentPage(1);
         addLog('APPLY_DATA', `Đã chuyển ${candidateCount} dòng sang bảng.`);

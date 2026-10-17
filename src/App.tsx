@@ -1188,9 +1188,19 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         if (offline) updateOfflineState({ candidates: next });
     };
     const applyData = () => {
+        const normalized = serializeCandidates(parseEditableCandidates(inputText).map(candidate => ({
+            ...candidate,
+            name: candidate.name.toLocaleUpperCase('vi-VN'),
+        })));
+        syncImportData(normalized);
+        saveAppCandidates(normalized);
+        if (larkPendingData) {
+            setLarkPendingData(normalized);
+            setLarkConfirmed(false);
+        }
         setShowDataTable(true);
         setCurrentPage(1);
-        addLog("APPLY_DATA", `Đã chuyển ${parseCandidates(inputText).length} dòng sang bảng.`);
+        addLog("APPLY_DATA", `Đã chuyển ${parseCandidates(normalized).length} dòng sang bảng.`);
     };
     const resetCandidateData = () => {
         if (!confirm('Đưa dữ liệu tham gia về trắng?')) return;

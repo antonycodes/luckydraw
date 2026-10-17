@@ -1096,6 +1096,11 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         else saveCandidates('');
         addLog("RESET_DATA", "Đã đưa dữ liệu tham gia về trắng.");
     };
+    const exitSession = () => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('session');
+        window.location.assign(`${url.pathname}${url.search}`);
+    };
 
     return (
         <div className="relative flex flex-col h-screen overflow-hidden bg-cover bg-center transition-all duration-500" style={{ backgroundImage: bgImage }}>
@@ -1136,8 +1141,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                     <div className="flex items-center justify-between border-b border-gray-200 pb-4">
                         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                             <i className="fa-solid fa-sliders text-red-600"></i> Thiết lập sự kiện
+                            {!offline && sessionId && <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-bold text-red-700">{sessionId}</span>}
                         </h2>
                         <div className="flex gap-2">
+                            {!offline && <button onClick={exitSession} className="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-300 transition-colors flex items-center gap-1" title="Thoát phiên quay số">
+                                <i className="fa-solid fa-right-from-bracket"></i> Thoát phiên
+                            </button>}
                             <button onClick={softReset} className="text-xs px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-full border border-red-300 transition-colors flex items-center gap-1 font-bold" title="Làm mới và xóa dữ liệu tham gia">
                                 <i className="fa-solid fa-rotate"></i> Làm mới
                             </button>

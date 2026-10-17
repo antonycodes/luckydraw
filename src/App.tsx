@@ -742,6 +742,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setLarkConfirmed(false);
             return;
         }
+        if (getDuplicateIds(parseCandidates(inputText)).length) {
+            setLarkError('Còn ID trùng. Hãy sửa hoặc xóa các dòng trùng trước khi xác nhận.');
+            return;
+        }
         setLarkConfirmed(true);
         setLarkError('');
         saveAppCandidates(inputText);
@@ -804,6 +808,13 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const startAutoSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
+        const currentDuplicateIds = getDuplicateIds(parsedCandidates);
+        if (currentDuplicateIds.length) {
+            alert(`Còn ${currentDuplicateIds.length} ID trùng. Hãy sửa hoặc xóa các dòng trùng trước khi quay.`);
+            setActiveTab('settings');
+            setShowDataTable(true);
+            return;
+        }
         const currentLarkConfig = (() => {
             try { const url = new URL(larkProxyUrl); url.searchParams.set('workshopId', sessionId.trim()); return JSON.stringify([url.origin + url.pathname, url.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]); }
             catch { return ''; }
@@ -1151,8 +1162,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         rows[index] = { ...rows[index], [field]: value };
         const next = serializeCandidates(rows);
         syncImportData(next);
-        if (larkPendingData) setLarkConfirmed(false);
+        if (larkPendingData) {
+            setLarkConfirmed(false);
+            setLarkPendingData(next);
+        }
         if (offline) updateOfflineState({ candidates: next });
+        else saveCandidates(next);
     };
     const addCandidateRow = () => {
         const next = `${inputText}${inputText ? '\n' : ''}`;
@@ -1325,12 +1340,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <button type="button" onClick={() => void refreshLarkCandidates()} disabled={larkLoading || isSpinning} aria-label="Refresh danh sách từ Lark" title="Refresh danh sách từ Lark" className="rounded-full border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100 disabled:opacity-50">
                                         <i className={`fa-solid ${larkLoading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} aria-hidden="true"></i>
                                     </button>
-                                    {larkPendingData && <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || inputText !== larkPendingData} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>}
+                                    {larkPendingData && <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || inputText !== larkPendingData || duplicateIds.length > 0} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>}
                                     {larkPendingData && <span className="text-xs font-medium text-sky-950">{parseCandidates(larkPendingData).length} người · Workshop {sessionId}</span>}
                                     {larkPendingData && <button type="button" onClick={() => { setLarkPendingData(''); setLarkLoadedConfig(''); setLarkConfirmed(false); setLarkError(''); }} className="text-xs font-semibold text-sky-900 underline">Dùng danh sách thủ công/CSV</button>}
                                 </div>
                                 {larkError && <p role="alert" className="mt-2 text-xs font-medium text-red-800">{larkError}</p>}
-                                {larkPendingData && !larkConfirmed && <p className="mt-2 text-xs text-sky-950">Kiểm tra bảng bên dưới rồi xác nhận. Chỉnh sửa danh sách sẽ yêu cầu tải lại.</p>}
+                                {larkPendingData && !larkConfirmed && <p className="mt-2 text-xs text-sky-950">{duplicateIds.length ? `Sửa hoặc xóa ${duplicateIds.length} ID trùng trong bảng bên dưới trước khi xác nhận.` : 'Kiểm tra bảng bên dưới rồi xác nhận. Chỉnh sửa danh sách sẽ yêu cầu tải lại.'}</p>}
                             </section>
                             <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>

@@ -246,7 +246,7 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
     <div className="relative h-auto min-h-[22rem] md:min-h-[36rem] w-full flex flex-col items-center justify-center select-none">
         {ids.length < 5 && (
             <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.75em_minmax(0,1fr)]' : 'flex justify-center'}`}>
                     {showOrder && <span aria-hidden="true" />}
                     <div style={{ fontSize: '70%' }} className={`text-center font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
                 </div>
@@ -254,8 +254,8 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
         )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
-                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
-                    {showOrder && <span className="display-text inline-flex h-[1.4em] w-[1.4em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.49em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
+                <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className={`shrink-0 w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.75em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                    {showOrder && <span className="display-text inline-flex h-[1.75em] w-[1.75em] shrink-0 items-center justify-center rounded-full border-[0.06em] border-white text-[0.49em] font-bold leading-none text-white">{String(index + 1).padStart(2, '0')}</span>}
                     <FitText className={`font-extrabold text-white font-sans tracking-tight display-text tabular-nums ${isRolling ? 'blur-[0.5px]' : ''}`}>
                         {id}
                     </FitText>
@@ -264,7 +264,7 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
         </div>
         {ids.length < 5 && (
             <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.4em_minmax(0,1fr)]' : 'flex justify-center'}`}>
+                <div className={`w-full items-center gap-4 ${showOrder ? 'mx-auto grid max-w-[95%] grid-cols-[1.75em_minmax(0,1fr)]' : 'flex justify-center'}`}>
                     {showOrder && <span aria-hidden="true" />}
                     <div style={{ fontSize: '70%' }} className={`text-center font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
                 </div>

@@ -1339,7 +1339,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                     <strong className="text-sm text-sky-950">Đồng bộ danh sách từ Lark</strong>
                                 </div>
-                                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(230px,1.5fr)]">
+                                <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                                     <label className="min-w-0">
                                         <span className="mb-1 block text-xs font-semibold text-sky-950">Khóa proxy</span>
                                         <input aria-label="Khóa proxy" type="password" value={larkAccessKey} onChange={e => setLarkAccessKey(e.target.value)} placeholder="Nhập khóa proxy" className="w-full min-w-0 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-sky-500" />

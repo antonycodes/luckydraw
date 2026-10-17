@@ -56,15 +56,17 @@ const combineCandidateColumns = (ids: string, names: string) => {
 };
 
 const getDuplicateIds = (candidates: any[]) => {
-    const counts = new Map<string, { id: string; count: number }>();
-    candidates.forEach(candidate => {
+    const counts = new Map<string, { id: string; rows: Array<{ line: number; name: string }> }>();
+    candidates.forEach((candidate, index) => {
         const id = String(candidate.id || '').trim();
         const normalized = id.toLowerCase();
         if (!normalized) return;
         const existing = counts.get(normalized);
-        counts.set(normalized, { id: existing?.id || id, count: (existing?.count || 0) + 1 });
+        const row = { line: index + 1, name: String(candidate.name || '').trim() };
+        if (existing) existing.rows.push(row);
+        else counts.set(normalized, { id, rows: [row] });
     });
-    return Array.from(counts.values()).filter(item => item.count > 1);
+    return Array.from(counts.values()).filter(item => item.rows.length > 1);
 };
 
 const maskIdentifier = (id: string) => {
@@ -710,9 +712,8 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                 name: String(record.name ?? '').trim(),
             }));
             const missing = rows.filter((row: { id: string }) => !row.id).length;
-            const duplicateCount = getDuplicateIds(rows).length;
             if (!rows.length) throw new Error('Workshop chưa có người tham gia.');
-            if (missing || duplicateCount) throw new Error(`Dữ liệu có ${missing} ID trống và ${duplicateCount} ID trùng. Hãy sửa trên Lark rồi tải lại.`);
+            if (missing) throw new Error(`Dữ liệu có ${missing} ID trống. Hãy bổ sung ID trên Lark rồi tải lại.`);
             const text = serializeCandidates(rows);
             setLarkPendingData(text);
             setLarkLoadedConfig(JSON.stringify([endpoint.origin + endpoint.pathname, endpoint.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]));
@@ -813,8 +814,15 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setActiveTab('settings');
             return;
         }
+        const previousWinnerIds = new Set(winners.map(winner => String(winner.id || '').trim().toLowerCase()));
+        const seenCandidateIds = new Set<string>();
         const eligibleCandidates = larkConfirmed
-            ? parsedCandidates.filter(candidate => !winners.some(winner => String(winner.id) === candidate.id))
+            ? parsedCandidates.filter(candidate => {
+                const id = String(candidate.id || '').trim().toLowerCase();
+                if (previousWinnerIds.has(id) || seenCandidateIds.has(id)) return false;
+                seenCandidateIds.add(id);
+                return true;
+            })
             : parsedCandidates;
         const count = winnerCount;
         if (eligibleCandidates.length === 0) {
@@ -954,8 +962,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
 
         if (removeWinner) {
-            const selectedIds = new Set(selected);
-            const newCandidates = parsedCandidates.filter(candidate => !selectedIds.has(candidate));
+            const selectedIds = new Set(selected.map(winner => String(winner.id || '').trim().toLowerCase()));
+            const newCandidates = parsedCandidates.filter(candidate => larkConfirmed
+                ? !selectedIds.has(String(candidate.id || '').trim().toLowerCase())
+                : !selected.includes(candidate));
             const newText = serializeCandidates(newCandidates);
             syncImportData(newText);
             if (larkConfirmed) setLarkPendingData(newText);
@@ -1151,9 +1161,14 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
 
     const parsedCandidates = parseCandidates(inputText);
     const editableCandidates = parseEditableCandidates(inputText);
-    const duplicateIds = getDuplicateIds(parsedCandidates);
+    const duplicateIds = getDuplicateIds(editableCandidates);
+    const duplicateRowIndexes = new Set(duplicateIds.flatMap(item => item.rows.map(row => row.line - 1)));
+    const larkCandidateIds = new Set(parsedCandidates.map(candidate => String(candidate.id || '').trim().toLowerCase()).filter(Boolean));
+    const larkWinnerIds = new Set(winners.map(winner => String(winner.id || '').trim().toLowerCase()));
     const totalPages = Math.max(1, Math.ceil(editableCandidates.length / PAGE_SIZE));
-    const remainingCount = removeWinner ? parsedCandidates.length : Math.max(parsedCandidates.length - winners.length, 0);
+    const remainingCount = larkConfirmed
+        ? Array.from(larkCandidateIds).filter(id => !larkWinnerIds.has(id)).length
+        : removeWinner ? parsedCandidates.length : Math.max(parsedCandidates.length - winners.length, 0);
     const pageStart = (currentPage - 1) * PAGE_SIZE;
     const paginatedCandidates = editableCandidates
         .map((candidate, index) => ({ candidate, index }))
@@ -1384,10 +1399,14 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                             </div>
                             {duplicateIds.length > 0 && (
                                 <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-                                    <div className="font-semibold"><i className="fa-solid fa-triangle-exclamation mr-1"></i>Cảnh báo ID trùng</div>
-                                    <div className="mt-1 flex flex-wrap gap-2">
-                                        {duplicateIds.map(item => <span key={item.id} className="rounded bg-white px-2 py-1 font-mono">{item.id} ({item.count} dòng)</span>)}
+                                    <div className="font-semibold"><i className="fa-solid fa-triangle-exclamation mr-1"></i>ID trùng · các dòng được giữ khi import</div>
+                                    <div className="mt-1 space-y-1">
+                                        {duplicateIds.map(item => <div key={item.id}>
+                                            <span className="font-mono">{maskDisplayIdentifier(item.id, maskId)}</span>
+                                            <span> — {item.rows.map(row => `dòng ${row.line}${row.name ? ` (${row.name})` : ''}`).join(', ')}</span>
+                                        </div>)}
                                     </div>
+                                    {larkPendingData && <p className="mt-1">Các dòng trùng vẫn có trong danh sách. Khi quay từ Lark, mỗi ID chỉ có một lượt và chỉ có thể trúng một lần trong phiên.</p>}
                                 </div>
                             )}
                             {showDataTable ? (
@@ -1403,7 +1422,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     </thead>
                                     <tbody>
                                         {paginatedCandidates.map(({ candidate, index }) => (
-                                            <tr key={index} className="border-t border-gray-200">
+                                            <tr key={index} className={`border-t border-gray-200 ${duplicateRowIndexes.has(index) ? 'bg-red-50' : ''}`}>
                                                 <td className="p-1 align-top">
                                                     <input
                                                         aria-label={`ID dòng ${index + 1}`}

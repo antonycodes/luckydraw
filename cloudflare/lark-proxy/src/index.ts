@@ -1,0 +1,94 @@
+interface Env {
+  APP_ID: string;
+  'APP-SECRET': string;
+  LARK_APP_TOKEN: string;
+  LARK_TABLE_ID: string;
+  PROXY_ACCESS_KEY: string;
+  ALLOWED_ORIGIN: string;
+}
+
+const FIELD_IDS = {
+  workshop: 'fld3Z7MnaB',
+  name: 'fldtDlmW1w',
+  phone: 'fldlRDbj9a',
+  studentId: 'fldv64kybI',
+} as const;
+
+const json = (body: unknown, status = 200, origin = '') => new Response(JSON.stringify(body), {
+  status,
+  headers: {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Vary': 'Origin',
+  },
+});
+
+const cellText = (value: unknown): string => {
+  if (typeof value === 'string' || typeof value === 'number') return String(value).trim();
+  if (Array.isArray(value)) return value.map(cellText).filter(Boolean).join(', ');
+  if (value && typeof value === 'object' && 'text' in value) return cellText((value as { text: unknown }).text);
+  return '';
+};
+
+async function readAllRecords(env: Env, token: string) {
+  const records: Array<{ fields: Record<string, unknown> }> = [];
+  let pageToken = '';
+  for (let page = 0; page < 20; page++) {
+    const url = new URL(`https://open.larksuite.com/open-apis/bitable/v1/apps/${encodeURIComponent(env.LARK_APP_TOKEN)}/tables/${encodeURIComponent(env.LARK_TABLE_ID)}/records`);
+    url.searchParams.set('page_size', '500');
+    if (pageToken) url.searchParams.set('page_token', pageToken);
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const payload = await response.json() as { code?: number; msg?: string; data?: { items?: Array<{ fields: Record<string, unknown> }>; has_more?: boolean; page_token?: string } };
+    if (!response.ok || payload.code !== 0) throw new Error(`Lark API lỗi (${payload.code ?? response.status}).`);
+    const data = payload.data;
+    if (!data) throw new Error('Lark API không trả dữ liệu.');
+    records.push(...(data.items || []));
+    if (!data.has_more) return records;
+    if (!data.page_token || data.page_token === pageToken) throw new Error('Lark phân trang không hợp lệ.');
+    pageToken = data.page_token;
+  }
+  // shortcut: reads at most 10,000 rows, add server-side Lark filtering if the Base grows beyond this.
+  throw new Error('Workshop vượt quá giới hạn đồng bộ 10.000 bản ghi.');
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const origin = request.headers.get('Origin') || '';
+    const allowedOrigins = (env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean);
+    if (!origin || !allowedOrigins.includes(origin)) return json({ error: 'Origin không được phép.' }, 403);
+    if (request.method === 'OPTIONS') return new Response(null, { headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Max-Age': '86400',
+      'Vary': 'Origin',
+    } });
+    if (request.method !== 'GET') return json({ error: 'Method không được hỗ trợ.' }, 405, origin);
+    if (!env.PROXY_ACCESS_KEY || request.headers.get('Authorization') !== `Bearer ${env.PROXY_ACCESS_KEY}`) {
+      return json({ error: 'Không có quyền truy cập.' }, 401, origin);
+    }
+    const workshopId = new URL(request.url).searchParams.get('workshopId')?.trim();
+    if (!workshopId) return json({ error: 'Thiếu workshopId.' }, 400, origin);
+    try {
+      const tokenResponse = await fetch('https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ app_id: env.APP_ID, app_secret: env['APP-SECRET'] }),
+      });
+      const tokenPayload = await tokenResponse.json() as { code?: number; tenant_access_token?: string };
+      if (!tokenResponse.ok || tokenPayload.code !== 0 || !tokenPayload.tenant_access_token) throw new Error('Không thể xác thực với Lark.');
+      const records = await readAllRecords(env, tokenPayload.tenant_access_token);
+      const matching = records.filter(({ fields }) => cellText(fields[FIELD_IDS.workshop]) === workshopId);
+      return json({ workshopId, records: matching.map(({ fields }) => ({
+        phone: cellText(fields[FIELD_IDS.phone]),
+        studentId: cellText(fields[FIELD_IDS.studentId]),
+        name: cellText(fields[FIELD_IDS.name]),
+      })) }, 200, origin);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Không thể đồng bộ dữ liệu.' }, 502, origin);
+    }
+  },
+};

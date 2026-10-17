@@ -1,0 +1,6 @@
+name = "luckydraw-vhws"
+main = "src/index.ts"
+compatibility_date = "2026-10-17"
+
+[vars]
+ALLOWED_ORIGIN = "https://luckydraw.vhws.online,https://lucky.vhws.online,http://localhost:3000,http://127.0.0.1:3000"

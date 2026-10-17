@@ -582,6 +582,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
 };
 
 const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; sessionId?: string }) => {
+    const larkProxyUrl = 'https://luckydraw-vhws.eventnpi2026.workers.dev';
     const [activeTab, setActiveTab] = useState('settings');
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [winners, setWinners] = useState<any[]>([]);
@@ -599,6 +600,13 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const [inputNames, setInputNames] = useState('');
     const [showDataTable, setShowDataTable] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [larkAccessKey, setLarkAccessKey] = useState('');
+    const [larkIdField, setLarkIdField] = useState<'phone' | 'studentId'>('studentId');
+    const [larkLoading, setLarkLoading] = useState(false);
+    const [larkError, setLarkError] = useState('');
+    const [larkPendingData, setLarkPendingData] = useState('');
+    const [larkLoadedConfig, setLarkLoadedConfig] = useState('');
+    const [larkConfirmed, setLarkConfirmed] = useState(false);
 
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
     const [multiDisplayIds, setMultiDisplayIds] = useState<string[] | null>(null);
@@ -666,7 +674,74 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const updateImportColumns = (ids: string, names: string) => {
         const next = combineCandidateColumns(ids, names);
         syncImportData(next);
+        if (larkPendingData) setLarkConfirmed(false);
         if (offline) updateOfflineState({ candidates: next });
+    };
+
+    const refreshLarkCandidates = async () => {
+        let endpoint: URL;
+        try {
+            endpoint = new URL(larkProxyUrl);
+            if (endpoint.protocol !== 'https:') throw new Error();
+        } catch {
+            setLarkError('Nhập link HTTPS hợp lệ của Cloudflare proxy.');
+            return;
+        }
+        if (!sessionId.trim()) {
+            setLarkError('Không tìm thấy mã phiên để đối chiếu workshop.');
+            return;
+        }
+        if (!larkAccessKey.trim()) {
+            setLarkError('Nhập khóa truy cập do người quản lý proxy cung cấp.');
+            return;
+        }
+        endpoint.searchParams.set('workshopId', sessionId.trim());
+        setLarkLoading(true);
+        setLarkError('');
+        setLarkConfirmed(false);
+        try {
+            const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${larkAccessKey.trim()}` } });
+            if (!response.ok) throw new Error(`Proxy trả về lỗi ${response.status}.`);
+            const payload = await response.json();
+            if (payload.workshopId && String(payload.workshopId) !== sessionId.trim()) throw new Error('Mã workshop trả về không khớp mã phiên.');
+            if (!Array.isArray(payload.records)) throw new Error('Proxy cần trả về mảng records.');
+            const rows = payload.records.map((record: any) => ({
+                id: String(larkIdField === 'phone' ? record.phone ?? '' : record.studentId ?? '').trim(),
+                name: String(record.name ?? '').trim(),
+            }));
+            const missing = rows.filter((row: { id: string }) => !row.id).length;
+            const duplicateCount = getDuplicateIds(rows).length;
+            if (!rows.length) throw new Error('Workshop chưa có người tham gia.');
+            if (missing || duplicateCount) throw new Error(`Dữ liệu có ${missing} ID trống và ${duplicateCount} ID trùng. Hãy sửa trên Lark rồi tải lại.`);
+            const text = serializeCandidates(rows);
+            setLarkPendingData(text);
+            setLarkLoadedConfig(JSON.stringify([endpoint.origin + endpoint.pathname, endpoint.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]));
+            syncImportData(text);
+            setShowDataTable(true);
+            setCurrentPage(1);
+        } catch (error) {
+            setLarkError(error instanceof Error ? error.message : 'Không thể tải dữ liệu từ Lark.');
+        } finally {
+            setLarkLoading(false);
+        }
+    };
+
+    const confirmLarkCandidates = () => {
+        let currentConfig = '';
+        try {
+            const endpoint = new URL(larkProxyUrl);
+            endpoint.searchParams.set('workshopId', sessionId.trim());
+            currentConfig = JSON.stringify([endpoint.origin + endpoint.pathname, endpoint.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]);
+        } catch { /* Invalid proxy URL keeps the imported data unconfirmed. */ }
+        if (!larkPendingData || inputText !== larkPendingData || larkLoadedConfig !== currentConfig) {
+            setLarkError('Danh sách đã thay đổi. Hãy tải lại từ Lark để xác nhận.');
+            setLarkConfirmed(false);
+            return;
+        }
+        setLarkConfirmed(true);
+        setLarkError('');
+        saveAppCandidates(inputText);
+        addLog('LARK_IMPORT_CONFIRMED', `Đã xác nhận ${parseCandidates(inputText).length} người cho workshop ${sessionId}.`);
     };
 
     useEffect(() => {
@@ -729,21 +804,33 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const startAutoSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
+        const currentLarkConfig = (() => {
+            try { const url = new URL(larkProxyUrl); url.searchParams.set('workshopId', sessionId.trim()); return JSON.stringify([url.origin + url.pathname, url.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]); }
+            catch { return ''; }
+        })();
+        if (larkPendingData && (!larkConfirmed || inputText !== larkPendingData || larkLoadedConfig !== currentLarkConfig)) {
+            alert('Hãy tải lại và xác nhận danh sách Lark trước khi quay.');
+            setActiveTab('settings');
+            return;
+        }
+        const eligibleCandidates = larkConfirmed
+            ? parsedCandidates.filter(candidate => !winners.some(winner => String(winner.id) === candidate.id))
+            : parsedCandidates;
         const count = winnerCount;
-        if (parsedCandidates.length === 0) {
+        if (eligibleCandidates.length === 0) {
             alert("Vui lòng nhập danh sách!");
             setActiveTab('settings');
             return;
         }
-        if (count > parsedCandidates.length) {
-            alert(`Số người cần chọn không được vượt quá ${parsedCandidates.length}.`);
+        if (count > eligibleCandidates.length) {
+            alert(`Số người cần chọn không được vượt quá ${eligibleCandidates.length}.`);
             setActiveTab('settings');
             return;
         }
         if (isSpinning) return;
 
         setIsSpinning(true);
-        addLog("SPIN_START", count > 1 ? `Chọn ${count} người từ ${parsedCandidates.length} ứng viên.` : `Bắt đầu quay giải: ${prize.name}. SL tham gia: ${parsedCandidates.length}`);
+        addLog("SPIN_START", count > 1 ? `Chọn ${count} người từ ${eligibleCandidates.length} ứng viên.` : `Bắt đầu quay giải: ${prize.name}. SL tham gia: ${eligibleCandidates.length}`);
 
         if (customSound && audioRef.current) {
             audioRef.current.currentTime = 0;
@@ -751,7 +838,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
 
         setIsRolling(true);
-        setMultiDisplayIds(count > 1 ? parsedCandidates.slice(0, count).map(candidate => candidate.id) : null);
+        setMultiDisplayIds(count > 1 ? eligibleCandidates.slice(0, count).map(candidate => candidate.id) : null);
         setShowName(false);
         setDisplayName("");
         setShowTimer(true);
@@ -767,27 +854,27 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
 
         // Send the spin command through the active sync channel.
         const duration = spinDuration * 1000;
-        appCommand('SPIN_START', { duration, candidates: parsedCandidates, maskId, winnerCount: count });
+        appCommand('SPIN_START', { duration, candidates: eligibleCandidates, maskId, winnerCount: count });
 
         if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
         let counter = 0;
         spinIntervalRef.current = setInterval(() => {
             if (count > 1) {
-                const remaining = [...parsedCandidates];
+                const remaining = [...eligibleCandidates];
                 const rollingWinners = Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
-                const firstIndex = parsedCandidates.indexOf(rollingWinners[0]);
-                const lastIndex = parsedCandidates.indexOf(rollingWinners[rollingWinners.length - 1]);
+                const firstIndex = eligibleCandidates.indexOf(rollingWinners[0]);
+                const lastIndex = eligibleCandidates.indexOf(rollingWinners[rollingWinners.length - 1]);
                 setMultiDisplayIds(rollingWinners.map(candidate => candidate.id));
-                setDisplayPrevId(parsedCandidates[(firstIndex - 1 + parsedCandidates.length) % parsedCandidates.length].id);
-                setDisplayNextId(parsedCandidates[(lastIndex + 1) % parsedCandidates.length].id);
+                setDisplayPrevId(eligibleCandidates[(firstIndex - 1 + eligibleCandidates.length) % eligibleCandidates.length].id);
+                setDisplayNextId(eligibleCandidates[(lastIndex + 1) % eligibleCandidates.length].id);
                 if (counter % 4 === 0) playTickSound();
                 counter++;
                 return;
             }
-            const index = Math.floor(Math.random() * parsedCandidates.length);
-            const randomCandidate = parsedCandidates[index];
-            const prevCandidate = parsedCandidates[(index - 1 + parsedCandidates.length) % parsedCandidates.length];
-            const nextCandidate = parsedCandidates[(index + 1) % parsedCandidates.length];
+            const index = Math.floor(Math.random() * eligibleCandidates.length);
+            const randomCandidate = eligibleCandidates[index];
+            const prevCandidate = eligibleCandidates[(index - 1 + eligibleCandidates.length) % eligibleCandidates.length];
+            const nextCandidate = eligibleCandidates[(index + 1) % eligibleCandidates.length];
             setDisplayId(randomCandidate.id);
             setDisplayPrevId(prevCandidate.id);
             setDisplayNextId(nextCandidate.id);
@@ -800,7 +887,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                 clearInterval(spinIntervalRef.current);
                 spinIntervalRef.current = null;
             }
-            finishSpin(parsedCandidates, count);
+            finishSpin(eligibleCandidates, count);
         }, duration);
     };
 
@@ -871,6 +958,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             const newCandidates = parsedCandidates.filter(candidate => !selectedIds.has(candidate));
             const newText = serializeCandidates(newCandidates);
             syncImportData(newText);
+            if (larkConfirmed) setLarkPendingData(newText);
             saveAppCandidates(newText);
             addLog("REMOVE_CANDIDATE", `Đã loại ${selected.length} người trúng khỏi danh sách.`);
         }
@@ -1048,6 +1136,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             reader.onload = (ev) => {
                 const value = ev.target?.result as string;
                 syncImportData(value);
+                setLarkPendingData('');
+                setLarkLoadedConfig('');
+                setLarkConfirmed(false);
+                setLarkError('');
                 setShowDataTable(true);
                 if (offline) updateOfflineState({ candidates: value });
                 addLog("IMPORT_DATA", `Nhập dữ liệu từ CSV.`);
@@ -1076,11 +1168,13 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         rows[index] = { ...rows[index], [field]: value };
         const next = serializeCandidates(rows);
         syncImportData(next);
+        if (larkPendingData) setLarkConfirmed(false);
         if (offline) updateOfflineState({ candidates: next });
     };
     const addCandidateRow = () => {
         const next = `${inputText}${inputText ? '\n' : ''}`;
         syncImportData(next);
+        if (larkPendingData) setLarkConfirmed(false);
         if (offline) updateOfflineState({ candidates: next });
     };
     const removeCandidateRow = (index: number) => {
@@ -1088,6 +1182,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         rows.splice(index, 1);
         const next = serializeCandidates(rows);
         syncImportData(next);
+        if (larkPendingData) setLarkConfirmed(false);
         if (offline) updateOfflineState({ candidates: next });
     };
     const applyData = () => {
@@ -1098,6 +1193,9 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const resetCandidateData = () => {
         if (!confirm('Đưa dữ liệu tham gia về trắng?')) return;
         syncImportData('');
+        setLarkPendingData('');
+        setLarkLoadedConfig('');
+        setLarkConfirmed(false);
         setShowDataTable(false);
         setCurrentPage(1);
         if (offline) updateOfflineState({ candidates: '' });
@@ -1215,6 +1313,31 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                             </div>                        </div>
 
                         <div className="flex flex-col h-auto min-h-0">
+                            <section className="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                    <strong className="text-sm text-sky-950">Đồng bộ danh sách từ Lark</strong>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                                    <input aria-label="Khóa truy cập proxy" type="password" value={larkAccessKey} onChange={e => setLarkAccessKey(e.target.value)} placeholder="Khóa proxy" className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-sky-500" />
+                                    <select aria-label="Cột dùng làm ID" value={larkIdField} onChange={e => setLarkIdField(e.target.value as 'phone' | 'studentId')} className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800">
+                                        <option value="studentId">Mã số học sinh/sinh viên</option>
+                                        <option value="phone">Số điện thoại liên hệ</option>
+                                    </select>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <button type="button" onClick={() => void refreshLarkCandidates()} disabled={larkLoading || isSpinning} className="rounded-full bg-sky-800 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
+                                        <i className={`fa-solid ${larkLoading ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-down'} mr-1`}></i>{larkLoading ? 'Đang tải…' : 'Import từ Lark'}
+                                    </button>
+                                    <button type="button" onClick={() => void refreshLarkCandidates()} disabled={larkLoading || isSpinning} aria-label="Refresh danh sách từ Lark" title="Refresh danh sách từ Lark" className="rounded-full border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900 hover:bg-sky-100 disabled:opacity-50">
+                                        <i className={`fa-solid ${larkLoading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} aria-hidden="true"></i>
+                                    </button>
+                                    {larkPendingData && <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || inputText !== larkPendingData} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>}
+                                    {larkPendingData && <span className="text-xs font-medium text-sky-950">{parseCandidates(larkPendingData).length} người · Workshop {sessionId}</span>}
+                                    {larkPendingData && <button type="button" onClick={() => { setLarkPendingData(''); setLarkLoadedConfig(''); setLarkConfirmed(false); setLarkError(''); }} className="text-xs font-semibold text-sky-900 underline">Dùng danh sách thủ công/CSV</button>}
+                                </div>
+                                {larkError && <p role="alert" className="mt-2 text-xs font-medium text-red-800">{larkError}</p>}
+                                {larkPendingData && !larkConfirmed && <p className="mt-2 text-xs text-sky-950">Kiểm tra bảng bên dưới rồi xác nhận. Chỉnh sửa danh sách sẽ yêu cầu tải lại.</p>}
+                            </section>
                             <div className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between items-center">
                                 <span>3. Danh sách tham gia:</span>
                                 <div className="flex items-center gap-2">

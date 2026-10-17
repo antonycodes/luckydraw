@@ -412,6 +412,8 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     setDisplayId(payload?.id || '');
                     setDisplayPrevId(payload?.prevId || '');
                     setDisplayNextId(payload?.nextId || '');
+                    setDisplayName(payload?.name || '');
+                    setShowName(Boolean(payload?.name));
                     setShowTimer(false);
                     break;
                 case 'SHOW_NAME':
@@ -920,7 +922,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         setDisplayId(winner.id);
         setDisplayPrevId(prevId);
         setDisplayNextId(nextId);
-        appCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count > 1 ? { winners: selected } : {}) });
+        appCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
 
         if (count === 1) {
             const name = winner.name || "(Không có tên)";
@@ -928,24 +930,19 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setShowName(true);
             playWinSound();
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
-            setTimeout(() => appCommand('SHOW_NAME', { name }), 500);
-            setTimeout(() => {
-                setModalData({ id: winner.id, name });
-                setModalWinners([]);
-                setShowModal(true);
-                triggerModalConfetti();
-                appCommand('SHOW_MODAL', { id: winner.id, name });
-            }, 2000);
+            setModalData({ id: winner.id, name });
+            setModalWinners([]);
+            setShowModal(true);
+            triggerModalConfetti();
+            appCommand('SHOW_MODAL', { id: winner.id, name });
         } else {
             setDisplayName("");
             setShowName(false);
-            setTimeout(() => {
-                setModalData({ id: '', name: '' });
-                setModalWinners(selected);
-                setShowModal(true);
-                triggerModalConfetti();
-                appCommand('SHOW_MODAL', { winners: selected });
-            }, 2000);
+            setModalData({ id: '', name: '' });
+            setModalWinners(selected);
+            setShowModal(true);
+            triggerModalConfetti();
+            appCommand('SHOW_MODAL', { winners: selected });
         }
 
         if (removeWinner) {

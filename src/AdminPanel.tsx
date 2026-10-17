@@ -202,14 +202,13 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
         const lastWinnerIndex = parsedCandidates.indexOf(selected[selected.length - 1]);
         const prevId = parsedCandidates[(firstWinnerIndex - 1 + parsedCandidates.length) % parsedCandidates.length].id;
         const nextId = parsedCandidates[(lastWinnerIndex + 1) % parsedCandidates.length].id;
-        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count > 1 ? { winners: selected } : {}) });
+        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
 
         if (count === 1) {
             const name = winner.name || "(Không có tên)";
-            setTimeout(() => sendCommand('SHOW_NAME', { name }), 500);
-            setTimeout(() => sendCommand('SHOW_MODAL', { id: winner.id, name }), 2500);
+            sendCommand('SHOW_MODAL', { id: winner.id, name });
         } else {
-            setTimeout(() => sendCommand('SHOW_MODAL', { winners: selected }), 2500);
+            sendCommand('SHOW_MODAL', { winners: selected });
         }
 
         if (removeWinner) {

@@ -550,9 +550,11 @@ const AdminPanel = () => {
                                 <option value="single">Chọn 1 người</option>
                                 <option value="multiple">Chọn nhiều người</option>
                             </select>
-                            {drawMode === 'multiple' && <div className="field-group">
+                            {drawMode === 'multiple' && <div className="field-group mb-3">
                                 <label htmlFor="admin-winner-count">Số người cần chọn</label>
-                                <input id="admin-winner-count" type="number" min="2" max={candidateCount || 2} value={winnerCount} onChange={e => setWinnerCount(Math.max(2, Number(e.target.value) || 2))} className="admin-input" />
+                                <select id="admin-winner-count" value={winnerCount} onChange={e => setWinnerCount(Number(e.target.value))} className="admin-input">
+                                    {[1, 2, 3, 4, 5].map(count => <option key={count} value={count}>{count}</option>)}
+                                </select>
                             </div>}
                         </div>
 

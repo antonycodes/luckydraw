@@ -1144,13 +1144,15 @@ const ControlView = ({ offline = false }: { offline?: boolean }) => {
                                     </label>
                                 </div>
                                 <label htmlFor="draw-mode" className="block text-sm font-semibold text-gray-700 mb-2">Chế độ quay</label>
-                                <select id="draw-mode" value={drawMode} onChange={e => setDrawMode(e.target.value as 'single' | 'multiple')} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                                <select id="draw-mode" value={drawMode} onChange={e => setDrawMode(e.target.value as 'single' | 'multiple')} className="w-full mb-3 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
                                     <option value="single">Chọn 1 người</option>
                                     <option value="multiple">Chọn nhiều người</option>
                                 </select>
-                                {drawMode === 'multiple' && <div className="mt-3">
+                                {drawMode === 'multiple' && <div className="mt-3 mb-3">
                                     <label htmlFor="winner-count" className="block text-sm font-semibold text-gray-700 mb-2">Số người cần chọn</label>
-                                    <input id="winner-count" type="number" min="2" max={parsedCandidates.length || 2} value={winnerCount} onChange={e => setWinnerCount(Math.max(2, Number(e.target.value) || 2))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                                    <select id="winner-count" value={winnerCount} onChange={e => setWinnerCount(Number(e.target.value))} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                                        {[1, 2, 3, 4, 5].map(count => <option key={count} value={count}>{count}</option>)}
+                                    </select>
                                 </div>}
                                 <div className="relative mb-3">
                                     <input type="file" id="bgInput" accept="image/*" className="hidden" onChange={handleBgUpload} />

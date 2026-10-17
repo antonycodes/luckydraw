@@ -43,6 +43,8 @@ const AdminPanel = () => {
     const [winners, setWinners] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
+    const [drawMode, setDrawMode] = useState<'single' | 'multiple'>('single');
+    const [winnerCount, setWinnerCount] = useState(2);
     const [removeWinner, setRemoveWinner] = useState(true);
     const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
@@ -120,15 +122,20 @@ const AdminPanel = () => {
     const startSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
+        const count = drawMode === 'single' ? 1 : winnerCount;
         if (parsedCandidates.length === 0) {
             alert("Vui lòng nhập danh sách!");
+            return;
+        }
+        if (count > parsedCandidates.length) {
+            alert(`Số người cần chọn không được vượt quá ${parsedCandidates.length}.`);
             return;
         }
         if (isSpinning) return;
 
         setIsSpinning(true);
         setActiveScene('spin');
-        addLog("SPIN_START", `Bắt đầu quay giải: ${prize.name}. SL: ${parsedCandidates.length}`);
+        addLog("SPIN_START", count > 1 ? `Chọn ${count} người từ ${parsedCandidates.length} ứng viên.` : `Bắt đầu quay giải: ${prize.name}. SL: ${parsedCandidates.length}`);
 
         if (customSound && audioRef.current) {
             audioRef.current.currentTime = 0;
@@ -137,7 +144,7 @@ const AdminPanel = () => {
 
         const duration = spinDuration * 1000;
         updateStateField('prize', prize);
-        sendCommand('SPIN_START', { duration, candidates: parsedCandidates });
+        sendCommand('SPIN_START', { duration, candidates: parsedCandidates, winnerCount: count });
 
         let counter = 0;
         const interval = setInterval(() => {
@@ -148,43 +155,49 @@ const AdminPanel = () => {
 
         setTimeout(() => {
             clearInterval(interval);
-            finishSpin(parsedCandidates);
+            finishSpin(parsedCandidates, count);
         }, duration);
     };
 
-    const finishSpin = (parsedCandidates: any[]) => {
+    const finishSpin = (parsedCandidates: any[], count: number) => {
         if (customSound && audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
 
-        const winnerIndex = Math.floor(Math.random() * parsedCandidates.length);
-        const winner = parsedCandidates[winnerIndex];
-        const winRecord = { ...winner, prizeName: prize.name, prizeImage: prize.image, timestamp: new Date() };
-        const newWinners = [winRecord, ...winners];
+        const remaining = [...parsedCandidates];
+        const selected = Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
+        const resultName = count === 1 ? prize.name : 'Quay nhiều người';
+        const resultImage = count === 1 ? prize.image : '';
+        const winnerRecords = selected.map(winner => ({ ...winner, prizeName: resultName, prizeImage: resultImage, timestamp: new Date() }));
+        const newWinners = [...winnerRecords, ...winners];
         setWinners(newWinners);
         saveWinners(newWinners);
 
-        addLog("WINNER", `${winner.id} - ${winner.name} (${prize.name})`);
+        addLog("WINNER", `${selected.length} người được chọn trong lượt quay.`);
 
-        sendCommand('SPIN_STOP', { id: winner.id });
+        const winner = selected[0];
+        const firstWinnerIndex = parsedCandidates.indexOf(winner);
+        const lastWinnerIndex = parsedCandidates.indexOf(selected[selected.length - 1]);
+        const prevId = parsedCandidates[(firstWinnerIndex - 1 + parsedCandidates.length) % parsedCandidates.length].id;
+        const nextId = parsedCandidates[(lastWinnerIndex + 1) % parsedCandidates.length].id;
+        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count > 1 ? { winners: selected } : {}) });
 
-        const name = winner.name || "(Không có tên)";
-        setTimeout(() => {
-            sendCommand('SHOW_NAME', { name });
-        }, 500);
-
-        setTimeout(() => {
-            sendCommand('SHOW_MODAL', { id: winner.id, name });
-        }, 2500);
+        if (count === 1) {
+            const name = winner.name || "(Không có tên)";
+            setTimeout(() => sendCommand('SHOW_NAME', { name }), 500);
+            setTimeout(() => sendCommand('SHOW_MODAL', { id: winner.id, name }), 2500);
+        } else {
+            setTimeout(() => sendCommand('SHOW_MODAL', { winners: selected }), 2500);
+        }
 
         if (removeWinner) {
-            const newCandidates = [...parsedCandidates];
-            newCandidates.splice(winnerIndex, 1);
+            const selectedIds = new Set(selected);
+            const newCandidates = parsedCandidates.filter(candidate => !selectedIds.has(candidate));
             const newText = newCandidates.map(c => c.name ? `${c.id}, ${c.name}` : c.id).join('\n');
             syncImportData(newText);
             saveCandidates(newText);
-            addLog("REMOVE", `Đã loại ${winner.id}`);
+            addLog("REMOVE", `Đã loại ${selected.length} người trúng khỏi danh sách.`);
         }
 
         setIsSpinning(false);
@@ -531,6 +544,18 @@ const AdminPanel = () => {
                             </div>
                         </div>
 
+                        <div className="control-card">
+                            <label className="control-label" htmlFor="admin-draw-mode">Chế độ quay</label>
+                            <select id="admin-draw-mode" value={drawMode} onChange={e => setDrawMode(e.target.value as 'single' | 'multiple')} className="admin-input">
+                                <option value="single">Chọn 1 người</option>
+                                <option value="multiple">Chọn nhiều người</option>
+                            </select>
+                            {drawMode === 'multiple' && <div className="field-group">
+                                <label htmlFor="admin-winner-count">Số người cần chọn</label>
+                                <input id="admin-winner-count" type="number" min="2" max={candidateCount || 2} value={winnerCount} onChange={e => setWinnerCount(Math.max(2, Number(e.target.value) || 2))} className="admin-input" />
+                            </div>}
+                        </div>
+
                         {/* Main Actions */}
                         <div className="action-grid">
                             <button
@@ -751,9 +776,7 @@ const AdminPanel = () => {
                                 {winners.map((w, i) => (
                                     <div key={i} className="winner-item" style={{ animationDelay: `${i * 50}ms` }}>
                                         <div className="winner-rank">#{winners.length - i}</div>
-                                        <div className="winner-prize-img">
-                                            <img src={w.prizeImage} alt="" />
-                                        </div>
+                                        {w.prizeImage && <div className="winner-prize-img"><img src={w.prizeImage} alt="" /></div>}
                                         <div className="winner-info">
                                             <div className="winner-prize-name">{w.prizeName}</div>
                                             <div className="winner-name">{w.name || "Ẩn danh"}</div>

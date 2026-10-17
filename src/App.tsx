@@ -742,10 +742,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setLarkConfirmed(false);
             return;
         }
-        if (getDuplicateIds(parseCandidates(inputText)).length) {
-            setLarkError('Còn ID trùng. Hãy sửa hoặc xóa các dòng trùng trước khi xác nhận.');
-            return;
-        }
         setLarkConfirmed(true);
         setLarkError('');
         setLarkPendingData(inputText);
@@ -809,13 +805,6 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const startAutoSpin = () => {
         initAudio();
         const parsedCandidates = parseCandidates(inputText);
-        const currentDuplicateIds = getDuplicateIds(parsedCandidates);
-        if (currentDuplicateIds.length) {
-            alert(`Còn ${currentDuplicateIds.length} ID trùng. Hãy sửa hoặc xóa các dòng trùng trước khi quay.`);
-            setActiveTab('settings');
-            setShowDataTable(true);
-            return;
-        }
         const currentLarkConfig = (() => {
             try { const url = new URL(larkProxyUrl); url.searchParams.set('workshopId', sessionId.trim()); return JSON.stringify([url.origin + url.pathname, url.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]); }
             catch { return ''; }
@@ -1187,6 +1176,23 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
         if (offline) updateOfflineState({ candidates: next });
     };
+    const removeDuplicateCandidates = () => {
+        const seen = new Set<string>();
+        const next = serializeCandidates(parseEditableCandidates(inputText).filter(candidate => {
+            const id = String(candidate.id || '').trim().toLowerCase();
+            if (!id || seen.has(id)) return !id;
+            seen.add(id);
+            return true;
+        }));
+        syncImportData(next);
+        if (larkPendingData) setLarkPendingData(next);
+        setLarkConfirmed(false);
+        setShowDuplicateOnly(false);
+        setCurrentPage(1);
+        setLarkError('');
+        if (offline) updateOfflineState({ candidates: next });
+        else saveCandidates(next);
+    };
     const applyData = () => {
         const normalized = serializeCandidates(parseEditableCandidates(inputText).map(candidate => ({
             ...candidate,
@@ -1403,6 +1409,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <div className={`text-[10px] uppercase ${duplicateIds.length ? 'text-red-600' : 'text-gray-500'}`}>{showDuplicateOnly && duplicateIds.length ? 'Đang lọc ID trùng' : 'ID trùng'}</div>
                                     <div className={`text-xl font-bold ${duplicateIds.length ? 'text-red-900' : 'text-gray-700'}`}>{duplicateIds.length}</div>
                                 </button>
+                                {duplicateIds.length > 0 && <button type="button" onClick={removeDuplicateCandidates} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Xóa bản ghi trùng, giữ dòng đầu</button>}
                             </div>
                             {showDataTable ? (
                                 <>
@@ -1457,7 +1464,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                             {larkPendingData && <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-sky-200 pt-3">
                                 {larkError && <p role="alert" className="mr-auto text-xs font-medium text-red-800">{larkError}</p>}
                                 {larkPendingData && <p className="mr-auto text-xs text-sky-950">{duplicateIds.length ? `Sửa hoặc xóa ${duplicateIds.length} ID trùng trước khi xác nhận.` : 'Kiểm tra danh sách lần cuối trước khi xác nhận.'}</p>}
-                                <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed || duplicateIds.length > 0} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>
+                                <button type="button" onClick={confirmLarkCandidates} disabled={larkConfirmed} className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{larkConfirmed ? 'Đã xác nhận danh sách' : 'Xác nhận dữ liệu'}</button>
                             </div>}
                             <p className="mt-2 text-[11px] text-gray-500">Bật “Che ID” sẽ giữ 3 ký tự đầu và 4 ký tự cuối. Dữ liệu gốc vẫn dùng để quay số.</p>
                             <div className="flex gap-2 mt-2">

@@ -1339,12 +1339,15 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                     <strong className="text-sm text-sky-950">Đồng bộ danh sách từ Lark</strong>
                                 </div>
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(230px,1.5fr)]">
                                     <input aria-label="Khóa truy cập proxy" type="password" value={larkAccessKey} onChange={e => setLarkAccessKey(e.target.value)} placeholder="Khóa proxy" className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-sky-500" />
-                                    <select aria-label="Cột dùng làm ID" value={larkIdField} onChange={e => setLarkIdField(e.target.value as 'phone' | 'studentId')} className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800">
-                                        <option value="studentId">Mã số học sinh/sinh viên</option>
-                                        <option value="phone">Số điện thoại liên hệ</option>
-                                    </select>
+                                    <label className="min-w-0">
+                                        <span className="mb-1 block text-xs font-semibold text-sky-950">Chọn ID</span>
+                                        <select aria-label="Chọn ID" value={larkIdField} onChange={e => setLarkIdField(e.target.value as 'phone' | 'studentId')} className="w-full min-w-0 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800">
+                                            <option value="studentId">Mã số học sinh/sinh viên</option>
+                                            <option value="phone">Số điện thoại liên hệ</option>
+                                        </select>
+                                    </label>
                                 </div>
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                     <button type="button" onClick={() => void refreshLarkCandidates()} disabled={larkLoading || isSpinning} className="rounded-full bg-sky-800 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-900 disabled:opacity-50">

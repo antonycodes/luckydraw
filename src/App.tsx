@@ -1340,7 +1340,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     <strong className="text-sm text-sky-950">Đồng bộ danh sách từ Lark</strong>
                                 </div>
                                 <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(230px,1.5fr)]">
-                                    <input aria-label="Khóa truy cập proxy" type="password" value={larkAccessKey} onChange={e => setLarkAccessKey(e.target.value)} placeholder="Khóa proxy" className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-sky-500" />
+                                    <label className="min-w-0">
+                                        <span className="mb-1 block text-xs font-semibold text-sky-950">Khóa proxy</span>
+                                        <input aria-label="Khóa proxy" type="password" value={larkAccessKey} onChange={e => setLarkAccessKey(e.target.value)} placeholder="Nhập khóa proxy" className="w-full min-w-0 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-sky-500" />
+                                    </label>
                                     <label className="min-w-0">
                                         <span className="mb-1 block text-xs font-semibold text-sky-950">Chọn ID</span>
                                         <select aria-label="Chọn ID" value={larkIdField} onChange={e => setLarkIdField(e.target.value as 'phone' | 'studentId')} className="w-full min-w-0 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs text-gray-800">

@@ -14,6 +14,13 @@ const FIELD_IDS = {
   studentId: 'fldv64kybI',
 } as const;
 
+const FIELD_NAMES = {
+  workshop: 'Mã Workshop',
+  name: 'Họ và tên của bạn là',
+  phone: 'Số điện thoại liên hệ',
+  studentId: 'Mã số học sinh/sinh viên',
+} as const;
+
 const json = (body: unknown, status = 200, origin = '') => new Response(JSON.stringify(body), {
   status,
   headers: {
@@ -32,6 +39,9 @@ const cellText = (value: unknown): string => {
   if (value && typeof value === 'object' && 'text' in value) return cellText((value as { text: unknown }).text);
   return '';
 };
+
+const fieldText = (fields: Record<string, unknown>, field: keyof typeof FIELD_IDS): string =>
+  cellText(fields[FIELD_IDS[field]] ?? fields[FIELD_NAMES[field]]);
 
 async function larkJson(response: Response, source: string) {
   const contentType = response.headers.get('content-type') || 'không rõ Content-Type';
@@ -94,11 +104,11 @@ export default {
       const tokenPayload = await larkJson(tokenResponse, 'Lark auth API') as { code?: number; msg?: string; tenant_access_token?: string };
       if (!tokenResponse.ok || tokenPayload.code !== 0 || !tokenPayload.tenant_access_token) throw new Error(`Lark xác thực thất bại (${tokenPayload.code ?? tokenResponse.status}): ${tokenPayload.msg || tokenResponse.statusText || 'Kiểm tra APP_ID và APP-SECRET.'}`);
       const records = await readAllRecords(env, tokenPayload.tenant_access_token);
-      const matching = records.filter(({ fields }) => cellText(fields[FIELD_IDS.workshop]) === workshopId);
+      const matching = records.filter(({ fields }) => fieldText(fields, 'workshop') === workshopId);
       return json({ workshopId, records: matching.map(({ fields }) => ({
-        phone: cellText(fields[FIELD_IDS.phone]),
-        studentId: cellText(fields[FIELD_IDS.studentId]),
-        name: cellText(fields[FIELD_IDS.name]),
+        phone: fieldText(fields, 'phone'),
+        studentId: fieldText(fields, 'studentId'),
+        name: fieldText(fields, 'name'),
       })) }, 200, origin);
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'Không thể đồng bộ dữ liệu.' }, 502, origin);

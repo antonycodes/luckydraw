@@ -748,6 +748,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
         setLarkConfirmed(true);
         setLarkError('');
+        setLarkPendingData(inputText);
         saveAppCandidates(inputText);
         addLog('LARK_IMPORT_CONFIRMED', `Đã xác nhận ${parseCandidates(inputText).length} người cho workshop ${sessionId}.`);
     };
@@ -819,7 +820,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             try { const url = new URL(larkProxyUrl); url.searchParams.set('workshopId', sessionId.trim()); return JSON.stringify([url.origin + url.pathname, url.search, sessionId.trim(), larkIdField, larkAccessKey.trim()]); }
             catch { return ''; }
         })();
-        if (larkPendingData && (!larkConfirmed || inputText !== larkPendingData || larkLoadedConfig !== currentLarkConfig)) {
+        if (larkPendingData && (!larkConfirmed || larkLoadedConfig !== currentLarkConfig)) {
             alert('Hãy tải lại và xác nhận danh sách Lark trước khi quay.');
             setActiveTab('settings');
             return;
@@ -1163,8 +1164,8 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         const next = serializeCandidates(rows);
         syncImportData(next);
         if (larkPendingData) {
-            setLarkConfirmed(false);
             setLarkPendingData(next);
+            setLarkConfirmed(false);
         }
         if (offline) updateOfflineState({ candidates: next });
         else saveCandidates(next);
@@ -1180,7 +1181,10 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         rows.splice(index, 1);
         const next = serializeCandidates(rows);
         syncImportData(next);
-        if (larkPendingData) setLarkConfirmed(false);
+        if (larkPendingData) {
+            setLarkPendingData(next);
+            setLarkConfirmed(false);
+        }
         if (offline) updateOfflineState({ candidates: next });
     };
     const applyData = () => {

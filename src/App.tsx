@@ -244,9 +244,11 @@ const NumberReel = ({ prevId, id, nextId, isRolling }: { prevId: string, id: str
 
 const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; prevId: string; nextId: string; isRolling: boolean }) => (
     <div className="relative h-auto min-h-[22rem] md:min-h-[36rem] w-full flex flex-col items-center justify-center select-none">
-        <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-            <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
-        </div>
+        {ids.length < 5 && (
+            <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
+                <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{prevId}</div>
+            </div>
+        )}
         <div className="w-full flex flex-col items-center justify-center gap-[10px] shrink-0">
             {ids.map((id, index) => (
                 <div key={index} style={{ fontSize: getAdaptiveFontSize(id, 9.5, 12.5) }} className="shrink-0 w-full flex items-center justify-center">
@@ -256,9 +258,11 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling }: { ids: string[]; pr
                 </div>
             ))}
         </div>
-        <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
-            <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
-        </div>
+        {ids.length < 5 && (
+            <div style={{ fontSize: getAdaptiveFontSize(ids[0] || '', 9.5, 12.5) }} className="h-[2rem] md:h-[7rem] w-full flex items-center justify-center opacity-30 blur-[0.5px] overflow-hidden">
+                <div style={{ fontSize: '70%' }} className={`font-extrabold text-white/50 font-sans tracking-tight tabular-nums whitespace-nowrap ${isRolling ? 'slot-sub-rolling' : ''}`}>{nextId}</div>
+            </div>
+        )}
     </div>
 );
 

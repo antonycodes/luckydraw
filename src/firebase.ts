@@ -24,9 +24,10 @@ export const ADMIN_EMAIL = 'nhanntl18402@gmail.com';
 let activeSessionId = '';
 
 export const normalizeSessionId = (value: string) => value.trim().toUpperCase();
-export const isValidSessionId = (value: string) => value.length <= 768 && /^[A-Z0-9]+$/.test(value);
+const databaseSessionId = (value: string) => value.replace(/\./g, '%2E');
+export const isValidSessionId = (value: string) => /^[A-Z0-9_.-]+$/.test(value) && databaseSessionId(value).length <= 768;
 export const setActiveSession = (sessionId: string) => { activeSessionId = normalizeSessionId(sessionId); };
-const sessionPath = (name: string) => `sessions/${activeSessionId}/${name}`;
+const sessionPath = (name: string) => `sessions/${databaseSessionId(activeSessionId)}/${name}`;
 
 const getFirebaseApp = () => getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const ensureSessionAuth = () => sessionAuthPromise ||= (async () => {
@@ -55,8 +56,8 @@ export const createSession = async (sessionId: string) => {
     if (!isValidSessionId(code)) return false;
     const user = await ensureSessionAuth();
     const { db } = getFirebaseRefs();
-    const result = await runTransaction(ref(db, `sessions/${code}/info`), current => current === null ? { createdAt: Date.now() } : undefined);
-    if (result.committed) await set(ref(db, `sessions/${code}/members/${user.uid}`), true);
+    const result = await runTransaction(ref(db, `sessions/${databaseSessionId(code)}/info`), current => current === null ? { createdAt: Date.now() } : undefined);
+    if (result.committed) await set(ref(db, `sessions/${databaseSessionId(code)}/members/${user.uid}`), true);
     return result.committed;
 };
 
@@ -65,16 +66,17 @@ export const joinSession = async (sessionId: string) => {
     if (!isValidSessionId(code)) return false;
     const user = await ensureSessionAuth();
     const { db } = getFirebaseRefs();
-    const snapshot = await get(ref(db, `sessions/${code}/info`));
+    const dbCode = databaseSessionId(code);
+    const snapshot = await get(ref(db, `sessions/${dbCode}/info`));
     if (!snapshot.exists()) return false;
-    await set(ref(db, `sessions/${code}/members/${user.uid}`), true);
+    await set(ref(db, `sessions/${dbCode}/members/${user.uid}`), true);
     return true;
 };
 
 export const getAllSessions = async () => {
     const snapshot = await get(ref(getFirebaseRefs().db, 'sessions'));
-    return Object.entries(snapshot.val() || {}).map(([code, data]: [string, any]) => ({
-        code,
+    return Object.entries(snapshot.val() || {}).map(([dbCode, data]: [string, any]) => ({
+        code: dbCode.replace(/%2E/g, '.'),
         createdAt: data.info?.createdAt || 0,
         candidateCount: typeof data.candidates === 'string' ? data.candidates.split(/\r?\n/).filter(Boolean).length : 0,
         winnerCount: data.winners ? Object.keys(data.winners).length : 0,
@@ -83,7 +85,7 @@ export const getAllSessions = async () => {
 
 export const deleteSession = (sessionId: string) => {
     if (!isValidSessionId(normalizeSessionId(sessionId))) throw new Error('invalid-session-id');
-    return remove(ref(getFirebaseRefs().db, `sessions/${normalizeSessionId(sessionId)}`));
+    return remove(ref(getFirebaseRefs().db, `sessions/${databaseSessionId(normalizeSessionId(sessionId))}`));
 };
 
 const getFirebaseRefs = () => {

@@ -810,7 +810,7 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
                                         {w.prizeImage && <div className="winner-prize-img"><img src={w.prizeImage} alt="" /></div>}
                                         <div className="winner-info">
                                             <div className="winner-prize-name">{w.prizeName}</div>
-                                            <div className="winner-name">{w.name || "Ẩn danh"}</div>
+                                            <div className="winner-name">{(w.name || "Ẩn danh").toLocaleUpperCase('vi-VN')}</div>
                                             <div className="winner-id">{w.id}</div>
                                         </div>
                                     </div>

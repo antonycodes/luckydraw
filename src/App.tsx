@@ -295,7 +295,7 @@ const Stage = ({
                         ? <MultiNumberReel ids={multiDisplayIds.map((id: string) => maskDisplayIdentifier(id, maskId))} prevId={visiblePrevId} nextId={visibleNextId} isRolling={isRolling} />
                         : <NumberReel prevId={visiblePrevId} id={visibleId} nextId={visibleNextId} isRolling={isRolling} />}
 
-                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
+                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold uppercase mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
                         {displayName}
                     </FitText>
                 </div>
@@ -547,7 +547,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                                         </div>}
                                         <div className="flex-grow">
                                             <div className="text-xs font-bold text-yellow-400 uppercase">{w.prizeName}</div>
-                                            <div className="text-lg font-bold text-white">{w.name || "Ẩn danh"}</div>
+                                            <div className="text-lg font-bold text-white uppercase">{w.name || "Ẩn danh"}</div>
                                             <div className="text-sm text-red-300 font-mono">{maskId ? maskIdentifier(w.id) : w.id}</div>
                                         </div>
                                     </div>
@@ -1549,7 +1549,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     </div>}
                                     <div className="flex-grow min-w-0">
                                         <div className="text-xs font-bold text-yellow-600 uppercase mb-0.5 tracking-wide truncate">{w.prizeName}</div>
-                                        <div className="text-lg font-bold text-gray-800 truncate">{w.name || "Ẩn danh"}</div>
+                                        <div className="text-lg font-bold text-gray-800 uppercase truncate">{w.name || "Ẩn danh"}</div>
                                         <div className="text-sm font-mono text-red-600 font-semibold">{maskId ? maskIdentifier(w.id) : w.id}</div>
                                     </div>
                                     <div className="text-xs text-gray-400 whitespace-nowrap">#{winners.length - index}</div>

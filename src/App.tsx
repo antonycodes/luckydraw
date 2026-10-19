@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import AdminPanel from './AdminPanel';
+import { DrawModeSelect } from './DrawModeSelect';
+import { runSequentialDraw, type DrawCandidate, type SequentialDisplay } from './sequentialDraw';
 import './admin.css';
 import { onCommandChange, onStateChange, onWinnersChange, sendCommand, updateStateField, saveWinners, saveCandidates, detachListeners, setActiveSession, createSession, joinSession, ensureSessionAuth, normalizeSessionId, isValidSessionId } from './firebase';
 import { hasOfflineState, loadOfflineState, sendOfflineCommand, subscribeOffline, updateOfflineState } from './offline';
@@ -273,9 +275,36 @@ const MultiNumberReel = ({ ids, prevId, nextId, isRolling, showOrder }: { ids: s
     </div>
 );
 
+const SequentialNumberReel = ({ display, maskId }: { display: SequentialDisplay; maskId: boolean }) => (
+    <div className="w-full select-none" role="list" aria-label="Kết quả quay lần lượt">
+        {Array.from({ length: display.count }, (_, index) => {
+            const winner = display.revealed[index];
+            const active = display.activeIndex === index;
+            return (
+                <div key={index} role="listitem" aria-label={`Dòng ${index + 1}: ${winner ? 'Đã chốt' : active ? 'Đang quay' : 'Chờ quay'}`} style={{ minHeight: display.count > 3 ? 'clamp(5rem, 12vh, 7rem)' : 'clamp(6rem, 15vh, 9rem)' }} className={`grid grid-cols-[clamp(2rem,3.5vw,4.5rem)_minmax(0,1fr)] items-center gap-x-3 py-3 md:py-4 ${index < display.count - 1 ? 'border-b border-white/40' : ''}`}>
+                    <span className={`display-text inline-flex aspect-square items-center justify-center rounded-full border-[3px] text-lg font-bold md:text-[clamp(1rem,1.8vw,2rem)] ${winner || active ? 'border-white text-white' : 'border-white/40 text-white/60'}`}>{String(index + 1).padStart(2, '0')}</span>
+                    <div className="min-w-0">
+                        {winner ? (
+                            <div className="animate-fade-in" aria-live="polite">
+                                <FitText className={`font-extrabold uppercase text-yellow-300 neon-text-gold leading-tight ${display.count > 3 ? 'text-lg md:text-[clamp(1rem,2.2vw,2.5rem)]' : 'text-xl md:text-[clamp(1.25rem,2.8vw,3.5rem)]'}`}>{winner.name || '(Không có tên)'}</FitText>
+                                <FitText className="mt-1 font-bold text-white display-text tracking-widest text-lg md:text-[clamp(1rem,2.2vw,2.75rem)]">{maskDisplayIdentifier(winner.id, maskId)}</FitText>
+                            </div>
+                        ) : active ? (
+                            <>
+                                <FitText className="mb-1 text-xs md:text-sm font-semibold uppercase tracking-widest text-white/80">Đang quay...</FitText>
+                                <FitText className="font-extrabold text-white display-text tabular-nums text-2xl md:text-[clamp(1.5rem,3.5vw,4rem)]">{maskDisplayIdentifier(display.rollingId, maskId)}</FitText>
+                            </>
+                        ) : <FitText className="text-lg md:text-2xl font-semibold text-white/60">Chờ quay</FitText>}
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+);
+
 const Stage = ({
     displayId, displayPrevId, displayNextId, displayName, showName, isRolling,
-    showControls = true, onSpin, isSpinning, showModal = false, maskId = false, multiDisplayIds = null, showWinnerOrder = false
+    showControls = true, onSpin, isSpinning, showModal = false, maskId = false, multiDisplayIds = null, showWinnerOrder = false, sequentialDisplay = null
 }: any) => {
     const visibleId = maskDisplayIdentifier(displayId, maskId);
     const visiblePrevId = maskDisplayIdentifier(displayPrevId, maskId);
@@ -287,15 +316,17 @@ const Stage = ({
                 <div className="relative flex-1 flex flex-col items-center justify-center min-w-0 w-full md:translate-y-5">
                     <div className="absolute w-[80%] h-[80%] bg-red-000 rounded-full filter blur-3xl opacity-30 -z-10"></div>
                     {/* Spacer to center the main text vertically by balancing the displayName below */}
-                    <div className="text-2xl md:text-4xl mt-4 min-h-12 invisible select-none pointer-events-none" aria-hidden="true">&nbsp;</div>
+                    {!sequentialDisplay && <div className="text-2xl md:text-4xl mt-4 min-h-12 invisible select-none pointer-events-none" aria-hidden="true">&nbsp;</div>}
 
-                    {(multiDisplayIds?.length ?? 0) > 1
+                    {sequentialDisplay
+                        ? <SequentialNumberReel display={sequentialDisplay} maskId={maskId} />
+                        : (multiDisplayIds?.length ?? 0) > 1
                         ? <MultiNumberReel ids={multiDisplayIds.map((id: string) => maskDisplayIdentifier(id, maskId))} prevId={visiblePrevId} nextId={visibleNextId} isRolling={isRolling} showOrder={showWinnerOrder} />
                         : <NumberReel prevId={visiblePrevId} id={visibleId} nextId={visibleNextId} isRolling={isRolling} />}
 
-                    <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold uppercase mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
+                    {!sequentialDisplay && <FitText className={`text-2xl md:text-4xl font-bold text-yellow-300 neon-text-gold uppercase mt-4 min-h-12 transform transition-all duration-500 ${showName ? 'opacity-100 translate-y-[10px]' : 'opacity-0 translate-y-0'}`}>
                         {displayName}
-                    </FitText>
+                    </FitText>}
                 </div>
 
                 <div className="relative h-[28vh] md:h-[64vh] aspect-[500/505] max-w-[88vw] shrink-0">
@@ -324,6 +355,7 @@ const Stage = ({
 };
 
 const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean; sessionId?: string }) => {
+    const [sequentialDisplay, setSequentialDisplay] = useState<SequentialDisplay | null>(null);
     const [bgImage, setBgImage] = useState(DEFAULT_BG);
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
     const [displayId, setDisplayId] = useState("ARE YOU READY ?");
@@ -359,6 +391,9 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     setOverlayState('winners');
                     break;
                 case 'BACK_TO_SPIN':
+                    if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
+                    setIsRolling(false);
+                    setSequentialDisplay(null);
                     setOverlayState('none');
                     setShowModal(false);
                     setDisplayId("ARE YOU READY ?");
@@ -373,6 +408,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     if (payload?.maskId !== undefined) setMaskId(payload.maskId);
                     if (payload?.showWinnerOrder !== undefined) setShowWinnerOrder(payload.showWinnerOrder);
                     setOverlayState('none');
+                    setShowModal(false);
                     setIsRolling(true);
                     setShowName(false);
                     setDisplayName('');
@@ -382,6 +418,9 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     const duration = payload?.duration || 10000;
                     const candidates = payload?.candidates || [];
                     const winnerCount = payload?.winnerCount || 1;
+                    const sequential = Boolean(payload?.sequential && winnerCount > 1);
+                    const revealed = payload?.revealed || [];
+                    setSequentialDisplay(sequential ? { count: winnerCount, revealed, activeIndex: revealed.length, rollingId: candidates[0]?.id || '' } : null);
                     setMultiDisplayIds(winnerCount > 1 ? candidates.slice(0, winnerCount).map((candidate: any) => candidate.id || candidate) : null);
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
@@ -394,6 +433,11 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
                     if (candidates.length > 0) {
                         spinIntervalRef.current = setInterval(() => {
+                            if (sequential) {
+                                const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+                                setSequentialDisplay(current => current ? { ...current, rollingId: candidate.id || candidate } : null);
+                                return;
+                            }
                             if (winnerCount > 1) {
                                 const remaining = [...candidates];
                                 const rollingWinners = Array.from({ length: winnerCount }, () => {
@@ -418,6 +462,13 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     }
                     break;
                 }
+                case 'SPIN_REVEAL':
+                    if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
+                    setSequentialDisplay({ count: payload.count, revealed: payload.winners, activeIndex: null, rollingId: '' });
+                    setIsRolling(false);
+                    setShowTimer(false);
+                    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
+                    break;
                 case 'SPIN_STOP':
                     if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setIsRolling(false);
@@ -447,6 +498,8 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                 case 'RESET':
                     if (spinIntervalRef.current) { clearInterval(spinIntervalRef.current); spinIntervalRef.current = null; }
                     setOverlayState('none');
+                    setSequentialDisplay(null);
+                    setIsRolling(false);
                     setDisplayId("ARE YOU READY ?");
                     setMultiDisplayIds(null);
                     setDisplayPrevId("");
@@ -466,7 +519,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
             setWinners(state.winners);
             setMaskId(state.maskId);
             setShowWinnerOrder(state.numberMultiWinners);
-            return subscribeOffline((message) => {
+            const unsubscribe = subscribeOffline((message) => {
                 if (message.type === 'state') {
                     const data = message.payload;
                     if (data.bgImage !== undefined) setBgImage(data.bgImage);
@@ -477,6 +530,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                 }
                 if (message.type === 'command') handleCommand(message.payload);
             });
+            return () => { unsubscribe(); clearInterval(spinIntervalRef.current); };
         }
 
         setActiveSession(sessionId);
@@ -493,7 +547,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
             onCommandChange(handleCommand);
         }).catch(() => undefined);
 
-        return () => { active = false; detachListeners(); };
+        return () => { active = false; detachListeners(); clearInterval(spinIntervalRef.current); };
     }, [offline, sessionId]);
 
     useEffect(() => {
@@ -517,6 +571,7 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
                     maskId={maskId}
                     multiDisplayIds={multiDisplayIds}
                     showWinnerOrder={showWinnerOrder}
+                    sequentialDisplay={sequentialDisplay}
                 />
             )}
 
@@ -592,6 +647,10 @@ const ProjectorView = ({ offline = false, sessionId = '' }: { offline?: boolean;
 };
 
 const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; sessionId?: string }) => {
+    const [sequentialMode, setSequentialMode] = useState(false);
+    const [sequentialDisplay, setSequentialDisplay] = useState<SequentialDisplay | null>(null);
+    const cancelDrawRef = useRef<(() => void) | null>(null);
+
     const larkProxyUrl = 'https://luckydraw-vhws.eventnpi2026.workers.dev';
     const [activeTab, setActiveTab] = useState('settings');
     const [prize, setPrize] = useState({ name: "THÀNH VIÊN S-STUDENT", image: "" });
@@ -641,6 +700,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
     const spinIntervalRef = useRef<any>(null);
     const navCollapseTimerRef = useRef<number | null>(null);
 
+    useEffect(() => () => {
+        cancelDrawRef.current?.();
+        clearInterval(spinIntervalRef.current);
+        audioRef.current.pause();
+    }, [offline, sessionId]);
+
     const syncImportData = (text: string) => {
         const columns = splitCandidateColumns(text);
         setInputText(text);
@@ -658,6 +723,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setRemoveWinner(state.removeWinner);
             setMaskId(state.maskId);
             setShowWinnerOrder(state.numberMultiWinners);
+            setSequentialMode(state.sequentialMultiWinners);
             return subscribeOffline((message) => {
                 if (message.type !== 'state') return;
                 const data = message.payload;
@@ -668,6 +734,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                 if (data.removeWinner !== undefined) setRemoveWinner(data.removeWinner);
                 if (data.maskId !== undefined) setMaskId(data.maskId);
                 if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
+                if (data.sequentialMultiWinners !== undefined) setSequentialMode(data.sequentialMultiWinners);
             });
         }
 
@@ -679,6 +746,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             onStateChange((data) => {
                 if (data.maskId !== undefined) setMaskId(data.maskId);
                 if (data.numberMultiWinners !== undefined) setShowWinnerOrder(data.numberMultiWinners);
+                if (data.sequentialMultiWinners !== undefined) setSequentialMode(data.sequentialMultiWinners);
             });
         }).catch(() => undefined);
         return () => { active = false; detachListeners(); };
@@ -852,6 +920,48 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         setIsSpinning(true);
         addLog("SPIN_START", count > 1 ? `Chọn ${count} người từ ${eligibleCandidates.length} ứng viên.` : `Bắt đầu quay giải: ${prize.name}. SL tham gia: ${eligibleCandidates.length}`);
 
+        cancelDrawRef.current?.();
+        setSequentialDisplay(null);
+        if (sequentialMode && count > 1) {
+            let previousWinners = [...winners];
+            setShowModal(false);
+            setShowName(false);
+            setDisplayName('');
+            setMultiDisplayIds(null);
+            cancelDrawRef.current = runSequentialDraw({
+                candidates: eligibleCandidates,
+                count,
+                duration: spinDuration * 1000,
+                onStart: (remaining, revealed) => {
+                    setSequentialDisplay({ count, revealed, activeIndex: revealed.length, rollingId: remaining[0].id });
+                    setIsRolling(true);
+                    setShowTimer(true);
+                    setTimerWidth('100%');
+                    setTimerTransition('none');
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        setTimerWidth('0%');
+                        setTimerTransition(`width ${spinDuration * 1000}ms linear`);
+                    }));
+                    if (customSound && audioRef.current) {
+                        audioRef.current.currentTime = 0;
+                        audioRef.current.play().catch(e => console.warn(e));
+                    }
+                    appCommand('SPIN_START', { duration: spinDuration * 1000, candidates: remaining, maskId, winnerCount: count, sequential: true, revealed });
+                    clearInterval(spinIntervalRef.current);
+                    let tick = 0;
+                    spinIntervalRef.current = setInterval(() => {
+                        const candidate = remaining[Math.floor(Math.random() * remaining.length)];
+                        setSequentialDisplay(current => current ? { ...current, rollingId: candidate.id } : null);
+                        if (tick++ % 4 === 0) playTickSound();
+                    }, 50);
+                },
+                onReveal: (selected, complete) => {
+                    previousWinners = finishSpin(eligibleCandidates, count, { selected, complete, previousWinners });
+                },
+            });
+            return;
+        }
+
         if (customSound && audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(e => console.warn(e));
@@ -902,16 +1012,20 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             counter++;
         }, 50);
 
-        setTimeout(() => {
+        const stopTimer = setTimeout(() => {
             if (spinIntervalRef.current) {
                 clearInterval(spinIntervalRef.current);
                 spinIntervalRef.current = null;
             }
             finishSpin(eligibleCandidates, count);
         }, duration);
+        cancelDrawRef.current = () => {
+            clearTimeout(stopTimer);
+            clearInterval(spinIntervalRef.current);
+        };
     };
 
-    const finishSpin = (parsedCandidates: any[], count: number) => {
+    const finishSpin = (parsedCandidates: any[], count: number, sequential?: { selected: DrawCandidate[]; previousWinners: any[]; complete: boolean }) => {
         setIsRolling(false);
         setShowTimer(false);
 
@@ -926,12 +1040,12 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         }
 
         const remaining = [...parsedCandidates];
-        const selected = Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
+        const selected = sequential?.selected ?? Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
         const resultName = count === 1 ? prize.name : 'Quay nhiều người';
         const resultImage = count === 1 ? prize.image : '';
-        const winnerRecords = selected.map(winner => ({ ...winner, prizeName: resultName, prizeImage: resultImage, timestamp: new Date() }));
+        const winnerRecords = (sequential ? selected.slice(-1) : selected).map(winner => ({ ...winner, prizeName: resultName, prizeImage: resultImage, timestamp: new Date() }));
         setMultiDisplayIds(count > 1 ? selected.map(winner => winner.id) : null);
-        const newWinners = [...winnerRecords, ...winners];
+        const newWinners = [...winnerRecords, ...(sequential?.previousWinners ?? winners)];
         setWinners(newWinners);
         saveAppWinners(newWinners);
 
@@ -945,7 +1059,14 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
         setDisplayId(winner.id);
         setDisplayPrevId(prevId);
         setDisplayNextId(nextId);
-        appCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
+        if (sequential) {
+            setSequentialDisplay({ count, revealed: selected, activeIndex: null, rollingId: '' });
+            appCommand('SPIN_REVEAL', { count, winners: selected, complete: sequential.complete });
+            playWinSound();
+            confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
+        } else {
+            appCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
+        }
 
         if (count === 1) {
             const name = winner.name || "(Không có tên)";
@@ -958,7 +1079,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             setShowModal(true);
             triggerModalConfetti();
             appCommand('SHOW_MODAL', { id: winner.id, name });
-        } else {
+        } else if (!sequential) {
             setDisplayName("");
             setShowName(false);
             setModalData({ id: '', name: '' });
@@ -980,10 +1101,19 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
             addLog("REMOVE_CANDIDATE", `Đã loại ${selected.length} người trúng khỏi danh sách.`);
         }
 
-        setIsSpinning(false);
+        if (!sequential || sequential.complete) setIsSpinning(false);
+        return newWinners;
     };
 
     const handleReset = () => {
+        cancelDrawRef.current?.();
+        cancelDrawRef.current = null;
+        clearInterval(spinIntervalRef.current);
+        audioRef.current.pause();
+        setIsSpinning(false);
+        setIsRolling(false);
+        setShowTimer(false);
+        setSequentialDisplay(null);
         setDisplayId("ARE YOU READY ?");
         setMultiDisplayIds(null);
         setDisplayPrevId("");
@@ -1293,9 +1423,14 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                                     </div>
                                 </div>
                 <div className="mb-3 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
-                    <span className="text-sm text-gray-700">Đánh số thứ tự khi quay nhiều người</span>
+                    <span className="text-sm text-gray-700">Đánh số thứ tự</span>
                     <input type="checkbox" checked={showWinnerOrder} onChange={e => { const value = e.target.checked; setShowWinnerOrder(value); if (offline) updateOfflineState({ numberMultiWinners: value }); else updateStateField('numberMultiWinners', value); }} className="h-4 w-4 accent-red-600" />
                 </div>
+                                {winnerCount > 1 && <DrawModeSelect sequential={sequentialMode} disabled={isSpinning} onChange={value => {
+                                    setSequentialMode(value);
+                                    if (offline) updateOfflineState({ sequentialMultiWinners: value });
+                                    else updateStateField('sequentialMultiWinners', value);
+                                }} />}
                                 <div className="mb-4 rounded-xl border border-red-100 bg-white px-3 py-3">
                                     <label htmlFor="spin-duration" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
                                         <i className="fa-regular fa-clock text-red-600"></i>
@@ -1520,6 +1655,7 @@ const ControlView = ({ offline = false, sessionId = '' }: { offline?: boolean; s
                         maskId={maskId}
                         multiDisplayIds={multiDisplayIds}
                         showWinnerOrder={showWinnerOrder}
+                        sequentialDisplay={sequentialDisplay}
                     />
                 </div>
 

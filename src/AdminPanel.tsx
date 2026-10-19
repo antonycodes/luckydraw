@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { DrawModeSelect } from './DrawModeSelect';
+import { runSequentialDraw, type DrawCandidate } from './sequentialDraw';
 import { ADMIN_EMAIL, sendCommand, updateStateField, saveWinners, saveCandidates, onWinnersChange, onCandidatesChange, onStateChange, detachListeners, setActiveSession, joinSession, signInAdmin, signOutAdmin, watchAdminAuth, getAllSessions, deleteSession } from './firebase';
 
 const parseCandidates = (text: string) => {
@@ -44,6 +46,7 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
     const [logs, setLogs] = useState<any[]>([]);
     const [isSpinning, setIsSpinning] = useState(false);
     const [winnerCount, setWinnerCount] = useState(1);
+    const [sequentialMode, setSequentialMode] = useState(false);
     const [removeWinner, setRemoveWinner] = useState(true);
     const [bgImage, setBgImage] = useState('url("https://res.cloudinary.com/dxikjdqqn/image/upload/v1776474005/BG_SLIDE_184_Light_io8uno.png")');
     const [customSound, setCustomSound] = useState<string | null>(null);
@@ -68,6 +71,14 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
 
     const audioRef = useRef(new Audio());
     const audioCtxRef = useRef<AudioContext | null>(null);
+    const cancelDrawRef = useRef<(() => void) | null>(null);
+    const sequentialTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => () => {
+        cancelDrawRef.current?.();
+        clearInterval(sequentialTickRef.current);
+        audioRef.current.pause();
+    }, [sessionId]);
 
     const syncImportData = (text: string) => {
         const columns = splitCandidateColumns(text);
@@ -93,6 +104,7 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
             onStateChange((data) => {
                 if (data.bgImage !== undefined) setBgImage(data.bgImage);
                 if (data.prize !== undefined) setPrize(data.prize);
+                if (data.sequentialMultiWinners !== undefined) setSequentialMode(data.sequentialMultiWinners);
             });
             setConnected(true);
         }).catch(() => { if (active) setConnected(false); });
@@ -158,6 +170,30 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
         setActiveScene('spin');
         addLog("SPIN_START", count > 1 ? `Chọn ${count} người từ ${parsedCandidates.length} ứng viên.` : `Bắt đầu quay giải: ${prize.name}. SL: ${parsedCandidates.length}`);
 
+        cancelDrawRef.current?.();
+        if (sequentialMode && count > 1) {
+            let previousWinners = [...winners];
+            cancelDrawRef.current = runSequentialDraw({
+                candidates: parsedCandidates,
+                count,
+                duration: spinDuration * 1000,
+                onStart: (remaining, revealed) => {
+                    if (customSound && audioRef.current) {
+                        audioRef.current.currentTime = 0;
+                        audioRef.current.play().catch(e => console.warn(e));
+                    }
+                    sendCommand('SPIN_START', { duration: spinDuration * 1000, candidates: remaining, winnerCount: count, sequential: true, revealed });
+                    clearInterval(sequentialTickRef.current);
+                    sequentialTickRef.current = setInterval(playTickSound, 200);
+                },
+                onReveal: (selected, complete) => {
+                    clearInterval(sequentialTickRef.current);
+                    previousWinners = finishSpin(parsedCandidates, count, { selected, complete, previousWinners });
+                },
+            });
+            return;
+        }
+
         if (customSound && audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(e => console.warn(e));
@@ -174,24 +210,28 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
             counter++;
         }, 50);
 
-        setTimeout(() => {
+        const stopTimer = setTimeout(() => {
             clearInterval(interval);
             finishSpin(parsedCandidates, count);
         }, duration);
+        cancelDrawRef.current = () => {
+            clearTimeout(stopTimer);
+            clearInterval(interval);
+        };
     };
 
-    const finishSpin = (parsedCandidates: any[], count: number) => {
+    const finishSpin = (parsedCandidates: any[], count: number, sequential?: { selected: DrawCandidate[]; previousWinners: any[]; complete: boolean }) => {
         if (customSound && audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
 
         const remaining = [...parsedCandidates];
-        const selected = Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
+        const selected = sequential?.selected ?? Array.from({ length: count }, () => remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
         const resultName = count === 1 ? prize.name : 'Quay nhiều người';
         const resultImage = count === 1 ? prize.image : '';
-        const winnerRecords = selected.map(winner => ({ ...winner, prizeName: resultName, prizeImage: resultImage, timestamp: new Date() }));
-        const newWinners = [...winnerRecords, ...winners];
+        const winnerRecords = (sequential ? selected.slice(-1) : selected).map(winner => ({ ...winner, prizeName: resultName, prizeImage: resultImage, timestamp: new Date() }));
+        const newWinners = [...winnerRecords, ...(sequential?.previousWinners ?? winners)];
         setWinners(newWinners);
         saveWinners(newWinners);
 
@@ -202,12 +242,16 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
         const lastWinnerIndex = parsedCandidates.indexOf(selected[selected.length - 1]);
         const prevId = parsedCandidates[(firstWinnerIndex - 1 + parsedCandidates.length) % parsedCandidates.length].id;
         const nextId = parsedCandidates[(lastWinnerIndex + 1) % parsedCandidates.length].id;
-        sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
+        if (sequential) {
+            sendCommand('SPIN_REVEAL', { count, winners: selected, complete: sequential.complete });
+        } else {
+            sendCommand('SPIN_STOP', { id: winner.id, prevId, nextId, ...(count === 1 ? { name: winner.name || '(Không có tên)' } : { winners: selected }) });
+        }
 
         if (count === 1) {
             const name = winner.name || "(Không có tên)";
             sendCommand('SHOW_MODAL', { id: winner.id, name });
-        } else {
+        } else if (!sequential) {
             sendCommand('SHOW_MODAL', { winners: selected });
         }
 
@@ -220,12 +264,17 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
             addLog("REMOVE", `Đã loại ${selected.length} người trúng khỏi danh sách.`);
         }
 
-        setIsSpinning(false);
+        if (!sequential || sequential.complete) setIsSpinning(false);
+        return newWinners;
     };
 
     const handleReset = () => {
+        cancelDrawRef.current?.();
+        cancelDrawRef.current = null;
+        clearInterval(sequentialTickRef.current);
+        audioRef.current.pause();
+        setIsSpinning(false);
         sendCommand('RESET');
-        sendCommand('CLOSE_MODAL');
         setActiveScene('spin');
         addLog("RESET", "Reset màn hình.");
     };
@@ -589,6 +638,10 @@ const AdminPanel = ({ sessionId = '' }: { sessionId?: string }) => {
                                     {[1, 2, 3, 4, 5].map(count => <button key={count} type="button" aria-pressed={winnerCount === count} onClick={() => setWinnerCount(count)} className={`rounded-full border py-2 text-sm font-semibold transition-colors ${winnerCount === count ? 'border-red-700 bg-red-700 text-white shadow-sm' : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'}`}>{count}</button>)}
                                 </div>
                             </div>
+                            {winnerCount > 1 && <DrawModeSelect sequential={sequentialMode} disabled={isSpinning} onChange={value => {
+                                setSequentialMode(value);
+                                updateStateField('sequentialMultiWinners', value);
+                            }} />}
                         </div>
 
                         {/* Main Actions */}
